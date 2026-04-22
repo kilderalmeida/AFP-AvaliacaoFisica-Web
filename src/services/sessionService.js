@@ -302,9 +302,9 @@ export async function finishCheckOut(sessionId, payloadOrCheckinValue) {
       pseFoster = Number(payload.pseFoster);
       duracaoMin = Number(payload.duracaoMin);
 
-      if (!Number.isFinite(duracaoMin) || duracaoMin < 1 || duracaoMin > 180) {
-        throw new Error('A duração deve ser entre 1 e 180 minutos.');
-      }
+    if (!Number.isFinite(duracaoMin) || duracaoMin < 1) {
+    throw new Error('A duração deve ser de pelo menos 1 minuto.');
+    }
 
       if (!Number.isFinite(pseFoster)) {
         throw new Error('PSE Foster é obrigatório para finalizar o check-out.');

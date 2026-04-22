@@ -103,8 +103,8 @@ export default function CheckOutPage() {
         return 'Informe a duração em minutos.';
       }
       const minutes = Number(form.duracaoMin);
-      if (minutes < 1 || minutes > 180) {
-        return 'A duração deve ser entre 1 e 180 minutos.';
+      if (minutes < 1) {
+        return 'A duração deve ser pelo menos 1 minuto.';
       }
     }
 
