@@ -174,12 +174,20 @@ export async function getRecentAthleteSessions(uid, limitCount = 5) {
  */
 export async function getActiveSession(uid) {
   try {
-    const q = query(collection(db, 'sessaotreino'), where('athleteId', '==', uid));
+    const q = query(
+      collection(db, 'sessaotreino'),
+      where('athleteId', '==', uid),
+      where('dataCheckout', '==', null)
+    );
     const snap = await getDocs(q);
     const sessions = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
     const activeSession = sessions.find(
-      (item) => item.dataCheckout === null || item.dataCheckout === undefined
+      (item) =>
+        item.dataCheckout === null ||
+        item.dataCheckout === undefined ||
+        item.pseFoster === null ||
+        item.pseFoster === undefined
     );
 
     return activeSession || null;
@@ -193,47 +201,54 @@ export async function getActiveSession(uid) {
  * Cria um novo check-in.
  *
  * Regra de negócio:
- * um atleta não pode abrir uma nova sessão se já existir
- * outra sessão ativa sem check-out.
- *
- * Observação:
- * dataCheckin é salva com serverTimestamp() para manter
- * consistência do horário gravado no Firestore.
- *
- * O retorno usa new Date() como valor otimista para a UI.
+ * - não permite novo check-in se houver sessão ativa
+ * - usa schema compatível com Android
  *
  * @param {string} uid - ID do atleta
+ * @param {Object} payload - Dados opcionais do check-in
  * @returns {Promise<Object>}
- * @throws {Error} Se já houver sessão ativa
+ * @throws {Error} Se não cumprir regras de negócio
  */
-export async function createCheckIn(uid) {
+export async function createCheckIn(uid, payload = {}) {
   try {
     const activeSession = await getActiveSession(uid);
-
     if (activeSession) {
-      throw new Error('Já existe uma sessão aberta para este atleta.');
+      const formattedDate = formatDateTimePtBR(activeSession.dataCheckin);
+      throw new Error(
+        `Já existe um treino em aberto desde ${formattedDate}. Finalize-o antes de iniciar um novo.`
+      );
     }
+
+    const {
+      atividades = [],
+      vfc = 0,
+      bemEstar = {},
+      recuperacao = '',
+      dorRegioes = [],
+      hidratacao = 0,
+    } = payload || {};
+
+    const normalizedBemEstar = {
+      fadiga: Number(bemEstar.fadiga) || 0,
+      sono: Number(bemEstar.sono) || 0,
+      dor: Number(bemEstar.dor) || 0,
+      estresse: Number(bemEstar.estresse) || 0,
+      humor: Number(bemEstar.humor) || 0,
+    };
 
     const docRef = await addDoc(collection(db, 'sessaotreino'), {
       athleteId: uid,
-      atividades: [],
-      bemEstar: {
-        dor: 0,
-        estresse: 0,
-        fadiga: 0,
-        humor: 0,
-        sono: 0,
-      },
-      carga: 0,
+      atividades: Array.isArray(atividades) ? atividades : [],
+      vfc: Number(vfc) || 0,
+      bemEstar: normalizedBemEstar,
+      recuperacao: typeof recuperacao === 'string' ? recuperacao : '',
+      dorRegioes: Array.isArray(dorRegioes) ? dorRegioes : [],
+      hidratacao: Number(hidratacao) || 0,
       dataCheckin: serverTimestamp(),
       dataCheckout: null,
-      dorRegioes: '',
+      pseFoster: null,
       duracaoMin: 0,
-      hidratacao: 0,
-      observacoes: '',
-      psePoster: 0,
-      recuperacao: '',
-      vfc: 0,
+      carga: 0,
     });
 
     return {
@@ -251,32 +266,66 @@ export async function createCheckIn(uid) {
  * Finaliza uma sessão existente com check-out.
  *
  * Regras:
- * - exige sessionId válido
- * - calcula duracaoMin antes da atualização
+ * - valida duracaoMin entre 1 e 180
+ * - calcula carga = pseFoster * duracaoMin
  * - grava dataCheckout com serverTimestamp()
  *
+ * Compatibilidade:
+ * - aceita payload com pseFoster e duracaoMin
+ * - mantém suporte legível para chamada legada
+ *   finishCheckOut(sessionId, dataCheckinValue)
+ *
  * @param {string} sessionId - ID da sessão
- * @param {Date|Object} dataCheckinValue - Data/hora do check-in
+ * @param {Object|Date} payloadOrCheckinValue - payload do check-out ou data de check-in legada
  * @returns {Promise<Object>}
  * @throws {Error} Se houver erro na atualização
  */
-export async function finishCheckOut(sessionId, dataCheckinValue) {
+export async function finishCheckOut(sessionId, payloadOrCheckinValue) {
   try {
     if (!sessionId) {
       throw new Error('ID da sessão é obrigatório.');
     }
 
+    const isLegacyCall =
+      payloadOrCheckinValue &&
+      (payloadOrCheckinValue instanceof Date ||
+        typeof payloadOrCheckinValue?.toDate === 'function' ||
+        payloadOrCheckinValue?.seconds);
+
+    let pseFoster = 0;
+    let duracaoMin = 0;
+
+    if (isLegacyCall) {
+      duracaoMin = calculateDurationMinutes(payloadOrCheckinValue, new Date());
+    } else {
+      const payload = payloadOrCheckinValue || {};
+      pseFoster = Number(payload.pseFoster);
+      duracaoMin = Number(payload.duracaoMin);
+
+      if (!Number.isFinite(duracaoMin) || duracaoMin < 1 || duracaoMin > 180) {
+        throw new Error('A duração deve ser entre 1 e 180 minutos.');
+      }
+
+      if (!Number.isFinite(pseFoster)) {
+        throw new Error('PSE Foster é obrigatório para finalizar o check-out.');
+      }
+    }
+
+    const carga = pseFoster * duracaoMin;
     const checkoutTime = new Date();
-    const durationMinutes = calculateDurationMinutes(dataCheckinValue, checkoutTime);
 
     await updateDoc(doc(db, 'sessaotreino', sessionId), {
       dataCheckout: serverTimestamp(),
-      duracaoMin: durationMinutes,
+      pseFoster: Number.isFinite(pseFoster) ? pseFoster : null,
+      duracaoMin,
+      carga,
     });
 
     return {
       time: checkoutTime,
-      durationMinutes,
+      durationMinutes: duracaoMin,
+      pseFoster: Number.isFinite(pseFoster) ? pseFoster : null,
+      carga,
       status: 'sucesso',
     };
   } catch (error) {
