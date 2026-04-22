@@ -29,6 +29,11 @@ function formatElapsed(minutes) {
   return `${hours}h ${remainingMinutes}min`;
 }
 
+const initialForm = {
+  pseFoster: '',
+  duracaoMin: '',
+};
+
 export default function CheckOutPage() {
   const [user, setUser] = useState(null);
   const [sessionData, setSessionData] = useState(null);
@@ -37,6 +42,8 @@ export default function CheckOutPage() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState(initialForm);
 
   useEffect(() => {
     /**
@@ -76,6 +83,49 @@ export default function CheckOutPage() {
     return calculateDurationForDisplay(sessionData.dataCheckin);
   }, [sessionData]);
 
+  const totalSteps = 3;
+  const isLastStep = step === totalSteps;
+  const progressLabel = `Etapa ${step} de ${totalSteps}`;
+
+  const validateStep = () => {
+    if (step === 2) {
+      if (!/^[0-9]+$/.test(form.pseFoster)) {
+        return 'Informe um valor de PSE Foster entre 0 e 10.';
+      }
+      const pseValue = Number(form.pseFoster);
+      if (pseValue < 0 || pseValue > 10) {
+        return 'PSE Foster deve estar entre 0 e 10.';
+      }
+    }
+
+    if (step === 3) {
+      if (!/^[0-9]+$/.test(form.duracaoMin)) {
+        return 'Informe a duração em minutos.';
+      }
+      const minutes = Number(form.duracaoMin);
+      if (minutes < 1 || minutes > 180) {
+        return 'A duração deve ser entre 1 e 180 minutos.';
+      }
+    }
+
+    return '';
+  };
+
+  const handleNext = () => {
+    const validationError = validateStep();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setError('');
+    setStep((current) => Math.min(totalSteps, current + 1));
+  };
+
+  const handlePrevious = () => {
+    setError('');
+    setStep((current) => Math.max(1, current - 1));
+  };
+
   const handleCheckOut = async () => {
     setCheckingOut(true);
     setError('');
@@ -89,11 +139,12 @@ export default function CheckOutPage() {
         throw new Error('Nenhuma sessão ativa encontrada.');
       }
 
-      /**
-       * O service centraliza a atualização no Firestore
-       * e o cálculo de duração persistido na sessão.
-       */
-      const result = await finishCheckOut(sessionData.id, sessionData.dataCheckin);
+      const payload = {
+        pseFoster: Number(form.pseFoster),
+        duracaoMin: Number(form.duracaoMin),
+      };
+
+      const result = await finishCheckOut(sessionData.id, payload);
 
       setCheckOutData(result);
       setSuccess(true);
@@ -103,6 +154,80 @@ export default function CheckOutPage() {
       setError(err.message || 'Erro ao registrar check-out. Tente novamente.');
     } finally {
       setCheckingOut(false);
+    }
+  };
+
+  const renderSessionSummary = () => (
+    <div className="session-info">
+      <h2>Resumo da sessão</h2>
+      <p>Hora de entrada: {formatDateTimeForDisplay(sessionData?.dataCheckin)}</p>
+      <p>Atividades: {sessionData?.atividades?.length ? sessionData.atividades.join(', ') : '-'}</p>
+      <p>VFC: {sessionData?.vfc ?? '-'}</p>
+      <p>Recuperação: {sessionData?.recuperacao || '-'}</p>
+      <p>Hidratação: {sessionData?.hidratacao ?? '-'}</p>
+      <div className="checkin-wellbeing-grid">
+        {sessionData?.bemEstar
+          ? Object.entries(sessionData.bemEstar).map(([key, value]) => (
+              <div key={key} className="checkin-wellbeing-item">
+                <strong>{key.charAt(0).toUpperCase() + key.slice(1)}:</strong> {value ?? '-'}
+              </div>
+            ))
+          : <p>Bem-estar: -</p>}
+      </div>
+      <p>Regiões de dor: {sessionData?.dorRegioes?.length ? sessionData.dorRegioes.join(', ') : '-'}</p>
+      <p>Tempo decorrido: {formatElapsed(elapsedMinutes)}</p>
+    </div>
+  );
+
+  const renderStepContent = () => {
+    switch (step) {
+      case 1:
+        return (
+          <div>
+            <p>Confira as informações do seu check-in antes de finalizar.</p>
+            {renderSessionSummary()}
+          </div>
+        );
+      case 2:
+        return (
+          <div>
+            <p>Informe o PSE Foster.</p>
+            <label>
+              Valor de 0 a 10
+              <input
+                type="text"
+                value={form.pseFoster}
+                maxLength={2}
+                onChange={(event) => {
+                  const digits = event.target.value.replace(/\D/g, '');
+                  setForm((prev) => ({ ...prev, pseFoster: digits }));
+                }}
+                className="checkout-input"
+              />
+            </label>
+          </div>
+        );
+      case 3:
+        return (
+          <div>
+            <p>Informe a duração do treino em minutos.</p>
+            <label>
+              Duração (min)
+              <input
+                type="text"
+                value={form.duracaoMin}
+                maxLength={3}
+                onChange={(event) => {
+                  const digits = event.target.value.replace(/\D/g, '');
+                  setForm((prev) => ({ ...prev, duracaoMin: digits }));
+                }}
+                className="checkout-input"
+              />
+            </label>
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
@@ -129,22 +254,44 @@ export default function CheckOutPage() {
             </div>
           ) : (
             <>
-              <div className="session-info">
-                <h2>Sessão Ativa</h2>
-                <p>Hora de entrada: {formatDateTimeForDisplay(sessionData.dataCheckin)}</p>
-                <p>Tempo decorrido: {formatElapsed(elapsedMinutes)}</p>
-                <p>Atividade: {sessionData.atividades?.[0] || '-'}</p>
+              <div className="checkout-step-header">
+                <span>{progressLabel}</span>
+                <p>Complete o processo para finalizar sua sessão.</p>
               </div>
+
+              {renderStepContent()}
 
               {error && <div className="error-message">{error}</div>}
 
-              <button
-                onClick={handleCheckOut}
-                disabled={checkingOut || success}
-                className="checkout-button"
-              >
-                {checkingOut ? 'Processando...' : success ? 'Concluído' : 'Fazer Check-out'}
-              </button>
+              <div className="checkout-actions">
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  disabled={step === 1 || checkingOut}
+                  className="secondary-button"
+                >
+                  Anterior
+                </button>
+                {isLastStep ? (
+                  <button
+                    type="button"
+                    onClick={handleCheckOut}
+                    disabled={checkingOut || success}
+                    className="checkout-button"
+                  >
+                    {checkingOut ? 'Processando...' : success ? 'Concluído' : 'Finalizar Check-out'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={checkingOut}
+                    className="checkout-button"
+                  >
+                    Próximo
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>
