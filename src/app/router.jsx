@@ -9,6 +9,7 @@ import LoginPage from '../pages/LoginPage.jsx';
 import DashboardPage from '../pages/DashboardPage.jsx';
 import CheckInPage from '../pages/CheckInPage.jsx';
 import CheckOutPage from '../pages/CheckOutPage.jsx';
+import AvaliacaoPAFPPage from '../pages/AvaliacaoPAFPPage.jsx';
 import { ProtectedRoute } from '../components/ProtectedRoute.jsx';
 
 /**
@@ -54,6 +55,15 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <CheckOutPage />
+      </ProtectedRoute>
+    ),
+  },
+
+  {
+    path: '/avaliacao-pafp',
+    element: (
+      <ProtectedRoute>
+        <AvaliacaoPAFPPage />
       </ProtectedRoute>
     ),
   },

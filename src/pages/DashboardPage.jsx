@@ -76,7 +76,7 @@ export default function DashboardPage() {
   }, []);
 
   if (loading) {
-    return <div className="dashboard-page">Carregando...</div>;
+    return <div className="dashboard-page">Carregando seu dashboard...</div>;
   }
 
   const displayName = profile?.nome || userInfo?.displayName || 'Atleta';
@@ -134,7 +134,7 @@ export default function DashboardPage() {
 
             <button
               style={styles.secondaryButton}
-              onClick={() => navigate('/avaliacao')}
+              onClick={() => navigate('/avaliacao-pafp')}
             >
               Avaliação
             </button>
