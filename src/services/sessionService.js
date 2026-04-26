@@ -128,6 +128,10 @@ export async function getCurrentUserProfile(uid) {
       papel: String(userData?.papel || '').normalize('NFC').trim().toLowerCase(),
       coach_id: userData?.coach_id ?? null,
       treinador_id: userData?.treinador_id ?? null,
+      coach_nome: userData?.coach_nome ?? null,
+      coach_email: userData?.coach_email ?? null,
+      treinador_nome: userData?.treinador_nome ?? null,
+      treinador_email: userData?.treinador_email ?? null,
     };
   } catch (error) {
     console.error('Erro ao buscar perfil do usuário:', error);
