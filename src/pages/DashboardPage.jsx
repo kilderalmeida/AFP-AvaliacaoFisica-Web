@@ -82,6 +82,8 @@ export default function DashboardPage() {
         setProfile(profileData);
 
         const profileType = normalizeProfileType(profileData);
+        console.log('[Dashboard][debug] profile:', profileData);
+        console.log('[Dashboard][debug] profileType:', profileType);
 
         // Initialize filters based on profile
         if (profileType === PROFILE_TYPES.COACH) {
@@ -106,8 +108,15 @@ export default function DashboardPage() {
   const loadCoachFilters = async (coachUid) => {
     try {
       setLoadingFilters(true);
-      const trainersData = await getTrainersByCoach(coachUid);
+      const [trainersData, athletesByCoachData] = await Promise.all([
+        getTrainersByCoach(coachUid),
+        getAthletesByCoach(coachUid),
+      ]);
       setTrainers(trainersData);
+      setFilteredAthletesForTrainer(athletesByCoachData || []);
+      console.log('[Dashboard][debug] trainers.length:', trainersData.length);
+      console.log('[Dashboard][debug] athletes.length:', athletesByCoachData.length);
+      console.log('[Dashboard][debug] filteredAthletesForTrainer.length:', (athletesByCoachData || []).length);
       
       if (trainersData?.length > 0) {
         const firstTrainerId = trainersData[0]?.id;
@@ -129,6 +138,7 @@ export default function DashboardPage() {
       setLoadingFilters(true);
       const athletesData = await getAthletesByTrainer(trainerUid);
       setAthletes(athletesData);
+      console.log('[Dashboard][debug] athletes.length:', athletesData.length);
       
       if (athletesData?.length > 0) {
         setSelectedAthlete(athletesData[0]?.id);
@@ -145,6 +155,7 @@ export default function DashboardPage() {
     try {
       const athletesData = await getAthletesByTrainer(trainerId);
       setFilteredAthletesForTrainer(athletesData);
+      console.log('[Dashboard][debug] filteredAthletesForTrainer.length:', athletesData.length);
       
       if (athletesData?.length > 0) {
         setSelectedAthlete(athletesData[0]?.id);
