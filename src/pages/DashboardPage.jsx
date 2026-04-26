@@ -1,41 +1,60 @@
 /**
- * Página do Dashboard
+ * Dashboard Refatorado
  *
- * Responsabilidades:
- * - carregar dados básicos do atleta autenticado
- * - buscar estatísticas consolidadas do dashboard
- * - exibir ações rápidas para navegação
- * - mostrar atividade recente das sessões
+ * Suporta 3 perfis com renderização otimizada:
+ * - Coach: filtro de treinador + atleta + período
+ * - Treinador: filtro de atleta + período
+ * - Atleta: apenas período + seus dados
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase/config.js';
 import {
   getCurrentUserProfile,
-  getDashboardStats,
+  getDashboardStatsByPeriod,
+  getAthletesByCoach,
+  getAthletesByTrainer,
+  getTrainersByCoach,
   formatDateTimeForDisplay,
 } from '../services/sessionService.js';
 
+const PROFILE_TYPES = {
+  COACH: 'coach',
+  TRAINER: 'treinador',
+  ATHLETE: 'atleta',
+};
+
+const PERIOD_OPTIONS = [
+  { label: '7 dias', value: 7 },
+  { label: '30 dias', value: 30 },
+];
+
 export default function DashboardPage() {
   const navigate = useNavigate();
-
+  
+  // User/Auth
   const [userInfo, setUserInfo] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalSessions: 0,
-    totalMinutes: 0,
-    totalHoursLabel: '0h',
-    recentActivities: [],
-  });
   const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Dashboard Data
+  const [stats, setStats] = useState(null);
+  
+  // Filters
+  const [selectedPeriod, setSelectedPeriod] = useState(7);
+  const [selectedTrainer, setSelectedTrainer] = useState(null);
+  const [selectedAthlete, setSelectedAthlete] = useState(null);
+  
+  // Filter Options
+  const [trainers, setTrainers] = useState([]);
+  const [athletes, setAthletes] = useState([]);
+  const [filteredAthletesForTrainer, setFilteredAthletesForTrainer] = useState([]);
+  const [loadingFilters, setLoadingFilters] = useState(false);
 
+  // Main effect: load profile and initialize filters
   useEffect(() => {
-    /**
-     * Ao entrar na página, observa o usuário autenticado
-     * e carrega os dados necessários para o dashboard.
-     */
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
         setLoading(true);
@@ -43,30 +62,24 @@ export default function DashboardPage() {
         if (!user) {
           setUserInfo(null);
           setProfile(null);
-          setStats({
-            totalSessions: 0,
-            totalMinutes: 0,
-            totalHoursLabel: '0h',
-            recentActivities: [],
-          });
           return;
         }
 
         setUserInfo(user);
-
-        /**
-         * O perfil vem da coleção /users
-         * e as métricas vêm centralizadas do sessionService.
-         */
-        const [profileData, dashboardStats] = await Promise.all([
-          getCurrentUserProfile(user.uid),
-          getDashboardStats(user.uid),
-        ]);
-
+        const profileData = await getCurrentUserProfile(user.uid);
         setProfile(profileData);
-        setStats(dashboardStats);
+
+        // Initialize filters based on profile
+        if (profileData?.perfil === PROFILE_TYPES.COACH) {
+          await loadCoachFilters(user.uid);
+        } else if (profileData?.perfil === PROFILE_TYPES.TRAINER) {
+          await loadTrainerFilters(user.uid);
+        }
+        
+        // Load initial stats with explicit profile type
+        await loadDashboardStats(user.uid, 7, profileData?.perfil, null, null);
       } catch (error) {
-        console.error('Erro ao carregar dashboard:', error);
+        console.error('Error loading dashboard:', error);
       } finally {
         setLoading(false);
       }
@@ -75,105 +88,348 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, []);
 
+  // Cascade loading: coach filters -> trainers
+  const loadCoachFilters = async (coachUid) => {
+    try {
+      setLoadingFilters(true);
+      const trainersData = await getTrainersByCoach(coachUid);
+      setTrainers(trainersData);
+      
+      if (trainersData?.length > 0) {
+        const firstTrainerId = trainersData[0]?.id;
+        setSelectedTrainer(firstTrainerId);
+        if (firstTrainerId) {
+          await loadAthletesForTrainer(firstTrainerId);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading trainer filters:', error);
+    } finally {
+      setLoadingFilters(false);
+    }
+  };
+
+  // Load athletes for trainer
+  const loadTrainerFilters = async (trainerUid) => {
+    try {
+      setLoadingFilters(true);
+      const athletesData = await getAthletesByTrainer(trainerUid);
+      setAthletes(athletesData);
+      
+      if (athletesData?.length > 0) {
+        setSelectedAthlete(athletesData[0]?.id);
+      }
+    } catch (error) {
+      console.error('Error loading athlete list:', error);
+    } finally {
+      setLoadingFilters(false);
+    }
+  };
+
+  // Load athletes for specific trainer (called when trainer changes in coach view)
+  const loadAthletesForTrainer = async (trainerId) => {
+    try {
+      const athletesData = await getAthletesByTrainer(trainerId);
+      setFilteredAthletesForTrainer(athletesData);
+      
+      if (athletesData?.length > 0) {
+        setSelectedAthlete(athletesData[0]?.id);
+      }
+    } catch (error) {
+      console.error('Error loading athletes for trainer:', error);
+    }
+  };
+
+  // Load dashboard stats
+  const loadDashboardStats = async (uid, period, profileType, trainerId, athleteId) => {
+    try {
+      let targetUid = uid;
+
+      if ((profileType === PROFILE_TYPES.COACH || profileType === PROFILE_TYPES.TRAINER) && athleteId) {
+        targetUid = athleteId;
+      }
+
+      const statsData = await getDashboardStatsByPeriod(targetUid, period);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+      setStats(null);
+    }
+  };
+
+  // Handle trainer change (for coach profile)
+  const handleTrainerChange = async (newTrainerId) => {
+    setSelectedTrainer(newTrainerId);
+    if (newTrainerId) {
+      await loadAthletesForTrainer(newTrainerId);
+    }
+  };
+
+  // Handle filter/period changes
+  useEffect(() => {
+    if (userInfo) {
+      loadDashboardStats(
+        userInfo.uid,
+        selectedPeriod,
+        profile?.perfil,
+        selectedTrainer,
+        selectedAthlete
+      );
+    }
+  }, [selectedPeriod, selectedAthlete, selectedTrainer, profile?.perfil]);
+
+  // Render filters based on profile
+  const renderFilters = () => {
+    return (
+      <div style={styles.filterBar}>
+        {/* Trainer filter for Coach */}
+        {profile?.perfil === PROFILE_TYPES.COACH && trainers.length > 0 && (
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Treinador</label>
+            <select
+              value={selectedTrainer || ''}
+              onChange={(e) => handleTrainerChange(e.target.value)}
+              style={styles.filterSelect}
+              disabled={loadingFilters}
+            >
+              {trainers.map((trainer) => (
+                <option key={trainer.id} value={trainer.id}>
+                  {trainer.nome || 'Sem nome'}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Athlete filter for Coach or Trainer */}
+        {profile?.perfil === PROFILE_TYPES.COACH &&
+          filteredAthletesForTrainer.length > 0 && (
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Atleta</label>
+              <select
+                value={selectedAthlete || ''}
+                onChange={(e) => setSelectedAthlete(e.target.value)}
+                style={styles.filterSelect}
+              >
+                {filteredAthletesForTrainer.map((athlete) => (
+                  <option key={athlete.id} value={athlete.id}>
+                    {athlete.nome || 'Sem nome'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+        {profile?.perfil === PROFILE_TYPES.TRAINER && athletes.length > 0 && (
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Atleta</label>
+            <select
+              value={selectedAthlete || ''}
+              onChange={(e) => setSelectedAthlete(e.target.value)}
+              style={styles.filterSelect}
+            >
+              {athletes.map((athlete) => (
+                <option key={athlete.id} value={athlete.id}>
+                  {athlete.nome || 'Sem nome'}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Period filter for all profiles */}
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Período</label>
+          <select
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(Number(e.target.value))}
+            style={styles.filterSelect}
+          >
+            {PERIOD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
-    return <div className="dashboard-page">Carregando seu dashboard...</div>;
+    return <div style={styles.page}>Carregando seu dashboard...</div>;
   }
 
-  const displayName = profile?.nome || userInfo?.displayName || 'Atleta';
+  if (!profile) {
+    return (
+      <div style={styles.page}>
+        <div>Erro ao carregar perfil. Por favor, recarregue a página.</div>
+      </div>
+    );
+  }
 
+  const displayName = profile?.nome || userInfo?.displayName || 'Usuário';
+  const papelBruto = profile?.papel;
+  const papelNormalizado = String(papelBruto || '').normalize('NFC').trim().toLowerCase();
+  const isAthlete = papelNormalizado === PROFILE_TYPES.ATHLETE;
+  
+  // Get the target name for display          
+  let targetDisplayName = displayName;
+  if (!isAthlete && selectedAthlete) {
+    // Find the athlete name from filtered lists
+    if (profile?.perfil === PROFILE_TYPES.COACH) {
+      const athlete = filteredAthletesForTrainer.find((a) => a.id === selectedAthlete);
+      targetDisplayName = athlete?.nome || displayName;
+    } else if ( profile?.perfil === PROFILE_TYPES.TRAINER) {
+      const athlete = athletes.find((a) => a.id === selectedAthlete);
+      targetDisplayName = athlete?.nome || displayName;
+    }
+  }
+  // console.log('profile:', profile);
+  // console.log('isAthlete:', isAthlete);
   return (
-    <div className="dashboard-page" style={styles.page}>
+    <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <p style={styles.eyebrow}>Painel do atleta</p>
+          <p style={styles.eyebrow}>Painel do dashboard</p>
           <h1 style={styles.title}>Dashboard</h1>
           <p style={styles.subtitle}>Olá, {displayName}</p>
         </div>
       </header>
 
       <main style={styles.content}>
-        <section style={styles.statsSection}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Estatísticas</h2>
-            <span style={styles.badge}>Atualizado agora</span>
-          </div>
-
-          <div style={styles.statsGrid}>
-            <div style={styles.card}>
-              <span style={styles.cardLabel}>Total de sessões</span>
-              <strong style={styles.cardValue}>{stats.totalSessions}</strong>
+        {/* Quick Actions - Only for Athletes */}
+        {isAthlete && (
+          <section style={styles.actionsSection}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>Ações rápidas</h2>
             </div>
-
-            <div style={styles.card}>
-              <span style={styles.cardLabel}>Horas registradas</span>
-              <strong style={styles.cardValue}>{stats.totalHoursLabel}</strong>
+            <div style={styles.actionsGrid}>
+              <button
+                style={styles.primaryButton}
+                onClick={() => navigate('/checkin')}
+              >
+                Check-in
+              </button>
+              <button
+                style={styles.secondaryButton}
+                onClick={() => navigate('/checkout')}
+              >
+                Check-out
+              </button>
+              <button
+                style={styles.secondaryButton}
+                onClick={() => navigate('/avaliacao-pafp')}
+              >
+                Avaliação
+              </button>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
+        
+        {/* Filters */}
+        {renderFilters()}
 
-        <section style={styles.actionsSection}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Ações rápidas</h2>
-          </div>
+        {/* Last Activity */}
+        {stats?.lastSession && (
+          <section style={styles.lastActivitySection}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>Última atividade</h2>
+            </div>
+            <div style={styles.lastActivityContent}>
+              <div>
+                <span style={styles.activityLabel}>Atividade</span>
+                <p style={styles.activityValue}>
+                  {stats.lastSession.atividades?.[0] || 'Sessão de treino'}
+                </p>
+              </div>
+              <div>
+                <span style={styles.activityLabel}>Data</span>
+                <p style={styles.activityValue}>
+                  {formatDateTimeForDisplay(stats.lastSession.dataCheckin)}
+                </p>
+              </div>
+              <div>
+                <span style={styles.activityLabel}>Duração</span>
+                <p style={styles.activityValue}>
+                  {stats.lastSession.duracaoMin ? `${stats.lastSession.duracaoMin}m` : 'N/D'}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
-          <div style={styles.actionsGrid}>
-            {/* Navegação rápida para o fluxo principal do atleta */}
-            <button
-              style={styles.primaryButton}
-              onClick={() => navigate('/checkin')}
-            >
-              Check-in
-            </button>
+        {/* Stats */}
+        {stats && (
+          <section style={styles.statsSection}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>Estatísticas ({stats.period}d)</h2>
+            </div>
+            <div style={styles.statsGrid}>
+              <div style={styles.statCard}>
+                <span style={styles.statLabel}>Sessões</span>
+                <strong style={styles.statValue}>{stats.totalSessions}</strong>
+              </div>
+              <div style={styles.statCard}>
+                <span style={styles.statLabel}>Horas</span>
+                <strong style={styles.statValue}>{stats.totalHoursLabel}</strong>
+              </div>
+              <div style={styles.statCard}>
+                <span style={styles.statLabel}>Minutos</span>
+                <strong style={styles.statValue}>{stats.totalMinutes}</strong>
+              </div>
+            </div>
+          </section>
+        )}
 
-            <button
-              style={styles.secondaryButton}
-              onClick={() => navigate('/checkout')}
-            >
-              Check-out
-            </button>
+        {/* Activities Distribution */}
+        {stats?.activitiesDistribution && stats.activitiesDistribution.size > 0 && (
+          <section style={styles.activitiesSection}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>Distribuição de atividades</h2>
+            </div>
+            <div style={styles.activitiesGrid}>
+              {Array.from(stats.activitiesDistribution.entries()).map(([activity, count]) => (
+                <div key={activity} style={styles.activityItem}>
+                  <span style={styles.activityName}>{activity}</span>
+                  <span style={styles.activityCount}>{count}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
-            <button
-              style={styles.secondaryButton}
-              onClick={() => navigate('/avaliacao-pafp')}
-            >
-              Avaliação
-            </button>
-          </div>
-        </section>
-
-        <section style={styles.recentSection}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Atividade recente</h2>
-          </div>
-
-          <div style={styles.activityList}>
+        {/* Session History */}
+        {stats?.recentActivities && (
+          <section style={styles.sessionHistorySection}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>Histórico de sessões</h2>
+            </div>
             {stats.recentActivities.length === 0 ? (
-              <div style={styles.emptyState}>Nenhuma atividade registrada</div>
+              <div style={styles.emptyState}>
+                Nenhuma sessão registrada neste período
+              </div>
             ) : (
-              stats.recentActivities.map((item, index) => (
-                <article
-                  key={`${item.id || 'sessao'}-${item.dataCheckin?.seconds || item.dataCheckout?.seconds || index}`}
-                  style={styles.activityCard}
-                >
-                  <div style={styles.activityTopRow}>
-                    <strong style={styles.activityTitle}>
-                      {item.atividades?.[0] || 'Sessão de treino'}
-                    </strong>
-                    <span style={styles.activityDuration}>
-                      {item.duracaoMin ? `${item.duracaoMin} min` : 'N/D'}
+              <div style={styles.sessionList}>
+                {stats.recentActivities.map((session, index) => (
+                  <article key={index} style={styles.sessionItem}>
+                    <div style={styles.sessionInfo}>
+                      <p style={styles.sessionActivity}>
+                        {session.atividades?.[0] || 'Sessão de treino'}
+                      </p>
+                      <p style={styles.sessionDate}>
+                        {formatDateTimeForDisplay(session.dataCheckin)}
+                      </p>
+                    </div>
+                    <span style={styles.sessionDuration}>
+                      {session.duracaoMin ? `${session.duracaoMin}m` : 'N/D'}
                     </span>
-                  </div>
-
-                  {/* Exibe check-in e check-out formatados de forma padronizada */}
-                  <div style={styles.activityMeta}>
-                    <span>Check-in: {formatDateTimeForDisplay(item.dataCheckin)}</span>
-                    <span>Check-out: {formatDateTimeForDisplay(item.dataCheckout)}</span>
-                  </div>
-                </article>
-              ))
+                  </article>
+                ))}
+              </div>
             )}
-          </div>
-        </section>
+          </section>
+        )}
       </main>
     </div>
   );
@@ -188,7 +444,7 @@ const styles = {
     color: '#1f2937',
   },
   header: {
-    maxWidth: '960px',
+    maxWidth: '1200px',
     margin: '0 auto 24px',
   },
   eyebrow: {
@@ -209,71 +465,184 @@ const styles = {
     color: '#4b5563',
   },
   content: {
-    maxWidth: '960px',
+    maxWidth: '1200px',
     margin: '0 auto',
     display: 'grid',
     gap: '24px',
   },
-  statsSection: {
+  filterBar: {
     background: '#ffffff',
-    borderRadius: '20px',
-    padding: '24px',
-    boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+    borderRadius: '12px',
+    padding: '16px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '16px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
   },
-  actionsSection: {
-    background: '#ffffff',
-    borderRadius: '20px',
-    padding: '24px',
-    boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+  filterGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
   },
-  recentSection: {
+  filterLabel: {
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#6b7280',
+    textTransform: 'uppercase',
+  },
+  filterSelect: {
+    padding: '8px 12px',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+  },
+  lastActivitySection: {
     background: '#ffffff',
-    borderRadius: '20px',
-    padding: '24px',
-    boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
   },
   sectionHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: '16px',
     gap: '12px',
-    marginBottom: '20px',
-    flexWrap: 'wrap',
   },
   sectionTitle: {
     margin: 0,
-    fontSize: '24px',
+    fontSize: '18px',
+    fontWeight: 600,
   },
-  badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '6px 10px',
-    borderRadius: '999px',
-    background: '#e0f2fe',
-    color: '#0369a1',
+  lastActivityContent: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gap: '16px',
+  },
+  activityLabel: {
+    display: 'block',
     fontSize: '12px',
-    fontWeight: 700,
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginBottom: '4px',
+  },
+  activityValue: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#1f2937',
+    margin: 0,
+  },
+  statsSection: {
+    background: '#ffffff',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
   },
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '16px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gap: '12px',
   },
-  card: {
-    background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+  statCard: {
+    background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
     color: '#ffffff',
-    borderRadius: '18px',
+    borderRadius: '8px',
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  statLabel: {
+    fontSize: '11px',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    color: '#b3d9ff',
+    marginBottom: '4px',
+  },
+  statValue: {
+    fontSize: '24px',
+    lineHeight: 1.2,
+  },
+  activitiesSection: {
+    background: '#ffffff',
+    borderRadius: '12px',
     padding: '20px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
   },
-  cardLabel: {
-    display: 'block',
+  activitiesGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+    gap: '12px',
+  },
+  activityItem: {
+    background: '#f3f4f6',
+    padding: '12px',
+    borderRadius: '8px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  activityName: {
     fontSize: '14px',
-    color: '#cbd5e1',
-    marginBottom: '8px',
+    fontWeight: 500,
+    color: '#1f2937',
   },
-  cardValue: {
-    fontSize: '36px',
-    lineHeight: 1.1,
+  activityCount: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#1976d2',
+    background: '#e3f2fd',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    marginLeft: '8px',
+  },
+  sessionHistorySection: {
+    background: '#ffffff',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+  },
+  sessionList: {
+    display: 'grid',
+    gap: '12px',
+  },
+  sessionItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px',
+    background: '#f9fafb',
+    borderRadius: '8px',
+    borderLeft: '4px solid #1976d2',
+  },
+  sessionInfo: {
+    flex: 1,
+  },
+  sessionActivity: {
+    margin: '0 0 4px 0',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#1f2937',
+  },
+  sessionDate: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#6b7280',
+  },
+  sessionDuration: {
+    margin: 0,
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#1976d2',
+    marginLeft: '16px',
+  },
+  actionsSection: {
+    background: '#ffffff',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
   },
   actionsGrid: {
     display: 'flex',
@@ -281,60 +650,31 @@ const styles = {
     flexWrap: 'wrap',
   },
   primaryButton: {
-    border: 'none',
-    borderRadius: '12px',
-    padding: '12px 18px',
-    background: '#2563eb',
+    padding: '10px 16px',
+    background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
     color: '#ffffff',
-    fontSize: '15px',
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-  secondaryButton: {
-    border: '1px solid #cbd5e1',
-    borderRadius: '12px',
-    padding: '12px 18px',
-    background: '#ffffff',
-    color: '#1f2937',
-    fontSize: '15px',
+    border: 'none',
+    borderRadius: '8px',
     fontWeight: 600,
     cursor: 'pointer',
-  },
-  activityList: {
-    display: 'grid',
-    gap: '14px',
-  },
-  activityCard: {
-    border: '1px solid #e5e7eb',
-    borderRadius: '16px',
-    padding: '16px',
-    background: '#f9fafb',
-  },
-  activityTopRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '12px',
-    flexWrap: 'wrap',
-    marginBottom: '8px',
-  },
-  activityTitle: {
-    fontSize: '18px',
-  },
-  activityDuration: {
     fontSize: '14px',
-    fontWeight: 700,
-    color: '#2563eb',
+    transition: 'all 0.3s ease',
   },
-  activityMeta: {
-    display: 'grid',
-    gap: '6px',
+  secondaryButton: {
+    padding: '10px 16px',
+    background: '#f3f4f6',
+    color: '#374151',
+    border: '1px solid #d1d5db',
+    borderRadius: '8px',
+    fontWeight: 600,
+    cursor: 'pointer',
     fontSize: '14px',
-    color: '#4b5563',
+    transition: 'all 0.3s ease',
   },
   emptyState: {
     padding: '24px',
     textAlign: 'center',
-    borderRadius: '16px',
+    borderRadius: '8px',
     background: '#f9fafb',
     color: '#6b7280',
   },

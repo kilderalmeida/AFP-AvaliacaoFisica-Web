@@ -411,3 +411,139 @@ export function calculateDurationForDisplay(startValue, endValue) {
 export function convertToDate(value) {
   return toDateObject(value);
 }
+
+/**
+ * Busca atletas vinculados a um coach.
+ *
+ * Regra: query em /users onde coach_id ou coach_avaliador_id == uid
+ *
+ * @param {string} coachUid - UID do coach
+ * @returns {Promise<Array>}
+ */
+export async function getAthletesByCoach(coachUid) {
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('coach_Id', '==', coachUid)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('Erro ao buscar atletas do coach:', error);
+    return [];
+  }
+}
+
+/**
+ * Busca atletas vinculados a um treinador.
+ *
+ * Regra: query em /users onde treinador_id == uid
+ *
+ * @param {string} trainerUid - UID do treinador
+ * @returns {Promise<Array>}
+ */
+export async function getAthletesByTrainer(trainerUid) {
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('treinador_id', '==', trainerUid)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('Erro ao buscar atletas do treinador:', error);
+    return [];
+  }
+}
+
+/**
+ * Busca treinadores vinculados a um coach.
+ *
+ * @param {string} coachUid - UID do coach
+ * @returns {Promise<Array>}
+ */
+export async function getTrainersByCoach(coachUid) {
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('coach_id', '==', coachUid),
+      where('perfil', '==', 'treinador')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('Erro ao buscar treinadores:', error);
+    return [];
+  }
+}
+
+/**
+ * Busca sessões de um atleta em um período.
+ *
+ * @param {string} athleteUid - UID do atleta
+ * @param {number} days - Número de dias para filtro (7 ou 30)
+ * @returns {Promise<Array>}
+ */
+export async function getAthleteSessionsByPeriod(athleteUid, days = 7) {
+  try {
+    const allSessions = await getAthleteSessions(athleteUid);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    return allSessions.filter((session) => {
+      const sessionDate = toDateObject(session.dataCheckout || session.dataCheckin);
+      return sessionDate && sessionDate >= cutoffDate;
+    });
+  } catch (error) {
+    console.error('Erro ao buscar sessões do período:', error);
+    return [];
+  }
+}
+
+/**
+ * Busca estatísticas de dashboard por período.
+ *
+ * @param {string} uid - UID do usuário
+ * @param {number} days - Período em dias (7 ou 30)
+ * @returns {Promise<Object>}
+ */
+export async function getDashboardStatsByPeriod(uid, days = 7) {
+  try {
+    const sessions = await getAthleteSessionsByPeriod(uid, days);
+    const totalMinutes = sessions.reduce((acc, item) => acc + Number(item.duracaoMin || 0), 0);
+
+    // Calcula distribuição de modalidades
+    const activitiesMap = {};
+    sessions.forEach((session) => {
+      if (session.atividades && Array.isArray(session.atividades)) {
+        session.atividades.forEach((activity) => {
+          activitiesMap[activity] = (activitiesMap[activity] || 0) + 1;
+        });
+      }
+    });
+
+    // Encontra última sessão
+    const lastSession = sessions[0] || null;
+
+    return {
+      totalSessions: sessions.length,
+      totalMinutes,
+      totalHoursLabel: formatHoursFromMinutes(totalMinutes),
+      recentActivities: sessions.slice(0, 5),
+      activitiesDistribution: activitiesMap,
+      lastSession,
+      period: days,
+    };
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas do período:', error);
+    return {
+      totalSessions: 0,
+      totalMinutes: 0,
+      totalHoursLabel: '0h',
+      recentActivities: [],
+      activitiesDistribution: {},
+      lastSession: null,
+      period: days,
+    };
+  }
+}
