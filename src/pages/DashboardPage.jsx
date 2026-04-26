@@ -32,7 +32,7 @@ const PERIOD_OPTIONS = [
 ];
 
 function normalizeProfileType(profileData) {
-  return String(profileData?.papel || profileData?.perfil || '')
+  return String(profileData?.papel || '')
     .normalize('NFC')
     .trim()
     .toLowerCase();
@@ -82,7 +82,6 @@ export default function DashboardPage() {
         setProfile(profileData);
 
         const profileType = normalizeProfileType(profileData);
-        console.log('[Dashboard][debug] profileType:', profileType);
 
         // Initialize filters based on profile
         if (profileType === PROFILE_TYPES.COACH) {
@@ -109,12 +108,10 @@ export default function DashboardPage() {
       setLoadingFilters(true);
       const trainersData = await getTrainersByCoach(coachUid);
       setTrainers(trainersData);
-      console.log('[Dashboard][debug] trainers loaded:', trainersData.length);
       
       if (trainersData?.length > 0) {
         const firstTrainerId = trainersData[0]?.id;
         setSelectedTrainer(firstTrainerId);
-        console.log('[Dashboard][debug] selected trainerId:', firstTrainerId);
         if (firstTrainerId) {
           await loadAthletesForTrainer(firstTrainerId);
         }
@@ -132,7 +129,6 @@ export default function DashboardPage() {
       setLoadingFilters(true);
       const athletesData = await getAthletesByTrainer(trainerUid);
       setAthletes(athletesData);
-      console.log('[Dashboard][debug] athletes loaded:', athletesData.length);
       
       if (athletesData?.length > 0) {
         setSelectedAthlete(athletesData[0]?.id);
@@ -149,8 +145,6 @@ export default function DashboardPage() {
     try {
       const athletesData = await getAthletesByTrainer(trainerId);
       setFilteredAthletesForTrainer(athletesData);
-      console.log('[Dashboard][debug] selected trainerId:', trainerId);
-      console.log('[Dashboard][debug] filteredAthletesForTrainer loaded:', athletesData.length);
       
       if (athletesData?.length > 0) {
         setSelectedAthlete(athletesData[0]?.id);

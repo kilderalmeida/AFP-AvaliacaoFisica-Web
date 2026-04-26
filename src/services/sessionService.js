@@ -104,18 +104,10 @@ function sortSessionsByDateDesc(sessions) {
 }
 
 function normalizeUserRole(userData) {
-  return String(userData?.papel || userData?.perfil || '')
+  return String(userData?.papel || '')
     .normalize('NFC')
     .trim()
     .toLowerCase();
-}
-
-function mergeUniqueUsersById(...userLists) {
-  const uniqueMap = new Map();
-  userLists.flat().forEach((user) => {
-    if (user?.id) uniqueMap.set(user.id, user);
-  });
-  return Array.from(uniqueMap.values());
 }
 
 /**
@@ -127,7 +119,20 @@ function mergeUniqueUsersById(...userLists) {
 export async function getCurrentUserProfile(uid) {
   try {
     const userSnap = await getDoc(doc(db, 'users', uid));
-    return userSnap.exists() ? userSnap.data() : null;
+    if (!userSnap.exists()) return null;
+
+    const userData = userSnap.data();
+    return {
+      nome: userData?.nome || '',
+      email: userData?.email || '',
+      papel: String(userData?.papel || '').normalize('NFC').trim().toLowerCase(),
+      coach_id: userData?.coach_id ?? null,
+      treinador_id: userData?.treinador_id ?? null,
+      coach_nome: userData?.coach_nome ?? null,
+      coach_email: userData?.coach_email ?? null,
+      treinador_nome: userData?.treinador_nome ?? null,
+      treinador_email: userData?.treinador_email ?? null,
+    };
   } catch (error) {
     console.error('Erro ao buscar perfil do usuário:', error);
     return null;
@@ -430,7 +435,7 @@ export function convertToDate(value) {
 /**
  * Busca atletas vinculados a um coach.
  *
- * Regra: query em /users onde coach_id ou coach_avaliador_id == uid
+ * Regra: query em /users onde coach_id == uid
  *
  * @param {string} coachUid - UID do coach
  * @returns {Promise<Array>}
@@ -463,8 +468,6 @@ export async function getAthletesByTrainer(trainerUid) {
     );
     const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     const athletes = users.filter((user) => normalizeUserRole(user) === 'atleta');
-    console.log('[sessionService][debug] atletas encontrados para treinador:', athletes.length);
-    console.log('[sessionService][debug] atletas encontrados para treinador selecionado:', athletes.length);
     return athletes;
   } catch (error) {
     console.error('Erro ao buscar atletas do treinador:', error);
@@ -485,7 +488,6 @@ export async function getTrainersByCoach(coachUid) {
     );
     const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     const trainers = users.filter((user) => normalizeUserRole(user) === 'treinador');
-    console.log('[sessionService][debug] treinadores encontrados para coach:', trainers.length);
     return trainers;
   } catch (error) {
     console.error('Erro ao buscar treinadores:', error);

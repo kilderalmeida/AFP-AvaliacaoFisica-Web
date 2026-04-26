@@ -3,12 +3,28 @@
  */
 
 export class User {
-  constructor(id, email, nome, perfil = 'user') {
+  constructor(
+    id,
+    email,
+    nome,
+    papel = 'atleta',
+    coach_id = null,
+    treinador_id = null,
+    coach_nome = null,
+    coach_email = null,
+    treinador_nome = null,
+    treinador_email = null
+  ) {
     this.id = id;
     this.email = email;
     this.nome = nome;
-    this.perfil = perfil; // 'user', 'admin', 'avaliador'
-    this.dataCriacao = new Date();
+    this.papel = papel;
+    this.coach_id = coach_id;
+    this.treinador_id = treinador_id;
+    this.coach_nome = coach_nome;
+    this.coach_email = coach_email;
+    this.treinador_nome = treinador_nome;
+    this.treinador_email = treinador_email;
   }
 
   // Método auxiliar para criar User a partir de dados do Firebase
@@ -17,18 +33,28 @@ export class User {
       doc.uid || doc.id,
       doc.email,
       doc.nome,
-      doc.perfil || 'user'
+      doc.papel || 'atleta',
+      doc.coach_id || null,
+      doc.treinador_id || null,
+      doc.coach_nome || null,
+      doc.coach_email || null,
+      doc.treinador_nome || null,
+      doc.treinador_email || null
     );
   }
 
   // Converter para objeto simples para enviar ao Firebase
   toJSON() {
     return {
-      id: this.id,
       email: this.email,
       nome: this.nome,
-      perfil: this.perfil,
-      dataCriacao: this.dataCriacao,
+      papel: this.papel,
+      coach_id: this.coach_id,
+      treinador_id: this.treinador_id,
+      coach_nome: this.coach_nome,
+      coach_email: this.coach_email,
+      treinador_nome: this.treinador_nome,
+      treinador_email: this.treinador_email,
     };
   }
 }
