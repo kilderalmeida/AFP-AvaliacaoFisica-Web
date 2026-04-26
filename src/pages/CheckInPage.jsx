@@ -16,6 +16,7 @@ import {
   getActiveSession,
   formatDateTimeForDisplay,
 } from '../services/sessionService.js';
+import { useNavigate } from 'react-router-dom';
 
 const activityOptions = [
   'Musculação',
@@ -66,6 +67,7 @@ function toggleSelection(list, item) {
 }
 
 export default function CheckInPage() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [checkInData, setCheckInData] = useState(null);
   const [activeSession, setActiveSession] = useState(null);
@@ -104,6 +106,15 @@ export default function CheckInPage() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        navigate('/dashboard');
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [success, navigate]);
 
   const validateStep = () => {
     if (step === 1 && form.atividades.length === 0) {

@@ -17,6 +17,7 @@ import {
   formatDateTimeForDisplay,
   calculateDurationForDisplay,
 } from '../services/sessionService.js';
+import { useNavigate } from 'react-router-dom';
 
 function formatElapsed(minutes) {
   if (!minutes) return '0 min';
@@ -35,6 +36,7 @@ const initialForm = {
 };
 
 export default function CheckOutPage() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [sessionData, setSessionData] = useState(null);
   const [checkOutData, setCheckOutData] = useState(null);
@@ -73,6 +75,15 @@ export default function CheckOutPage() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        navigate('/dashboard');
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [success, navigate]);
 
   /**
    * Calcula o tempo decorrido apenas para exibição da UI.

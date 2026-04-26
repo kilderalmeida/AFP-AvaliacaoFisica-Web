@@ -3,6 +3,7 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext.jsx';
 import { db } from '../services/firebase/config.js';
 import { getCurrentUserProfile } from '../services/sessionService.js';
+import { useNavigate } from 'react-router-dom';
 
 const initialForm = {
   nome_atleta: '',
@@ -42,6 +43,7 @@ const avaliadorOptions = ['Saulo Souza', 'Gustavo Sales']; // TODO: Fetch from u
 
 export default function AvaliacaoPAFPPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
@@ -62,6 +64,15 @@ export default function AvaliacaoPAFPPage() {
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        navigate('/dashboard');
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [success, navigate]);
 
   const bestVertical = useMemo(() => {
     const values = [
