@@ -103,6 +103,21 @@ function sortSessionsByDateDesc(sessions) {
   });
 }
 
+function normalizeUserRole(userData) {
+  return String(userData?.papel || userData?.perfil || '')
+    .normalize('NFC')
+    .trim()
+    .toLowerCase();
+}
+
+function mergeUniqueUsersById(...userLists) {
+  const uniqueMap = new Map();
+  userLists.flat().forEach((user) => {
+    if (user?.id) uniqueMap.set(user.id, user);
+  });
+  return Array.from(uniqueMap.values());
+}
+
 /**
  * Obtém o perfil do usuário em /users/{uid}.
  *
@@ -422,12 +437,19 @@ export function convertToDate(value) {
  */
 export async function getAthletesByCoach(coachUid) {
   try {
-    const q = query(
-      collection(db, 'users'),
-      where('coach_Id', '==', coachUid)
+    const [coachIdSnap, coachIdUpperSnap, coachAvaliadorSnap] = await Promise.all([
+      getDocs(query(collection(db, 'users'), where('coach_id', '==', coachUid))),
+      getDocs(query(collection(db, 'users'), where('coach_Id', '==', coachUid))),
+      getDocs(query(collection(db, 'users'), where('coach_avaliador_id', '==', coachUid))),
+    ]);
+
+    const mergedUsers = mergeUniqueUsersById(
+      coachIdSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      coachIdUpperSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      coachAvaliadorSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
     );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    return mergedUsers.filter((user) => normalizeUserRole(user) === 'atleta');
   } catch (error) {
     console.error('Erro ao buscar atletas do coach:', error);
     return [];
@@ -444,12 +466,17 @@ export async function getAthletesByCoach(coachUid) {
  */
 export async function getAthletesByTrainer(trainerUid) {
   try {
-    const q = query(
-      collection(db, 'users'),
-      where('treinador_id', '==', trainerUid)
+    const [treinadorIdSnap, trainerIdSnap] = await Promise.all([
+      getDocs(query(collection(db, 'users'), where('treinador_id', '==', trainerUid))),
+      getDocs(query(collection(db, 'users'), where('trainer_id', '==', trainerUid))),
+    ]);
+
+    const mergedUsers = mergeUniqueUsersById(
+      treinadorIdSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      trainerIdSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
     );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    return mergedUsers.filter((user) => normalizeUserRole(user) === 'atleta');
   } catch (error) {
     console.error('Erro ao buscar atletas do treinador:', error);
     return [];
@@ -464,13 +491,17 @@ export async function getAthletesByTrainer(trainerUid) {
  */
 export async function getTrainersByCoach(coachUid) {
   try {
-    const q = query(
-      collection(db, 'users'),
-      where('coach_id', '==', coachUid),
-      where('perfil', '==', 'treinador')
+    const [coachIdSnap, coachIdUpperSnap] = await Promise.all([
+      getDocs(query(collection(db, 'users'), where('coach_id', '==', coachUid))),
+      getDocs(query(collection(db, 'users'), where('coach_Id', '==', coachUid))),
+    ]);
+
+    const mergedUsers = mergeUniqueUsersById(
+      coachIdSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      coachIdUpperSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
     );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    return mergedUsers.filter((user) => normalizeUserRole(user) === 'treinador');
   } catch (error) {
     console.error('Erro ao buscar treinadores:', error);
     return [];
