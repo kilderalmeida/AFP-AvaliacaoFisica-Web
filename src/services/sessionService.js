@@ -355,7 +355,7 @@ export async function getDashboardStats(uid) {
       totalSessions: sessions.length,
       totalMinutes,
       totalHoursLabel: formatHoursFromMinutes(totalMinutes),
-      recentActivities: sessions.slice(0, 5),
+      recentActivities: sessions,
     };
   } catch (error) {
     console.error('Erro ao buscar estatísticas do dashboard:', error);
@@ -529,7 +529,7 @@ export async function getDashboardStatsByPeriod(uid, days = 7) {
       totalSessions: sessions.length,
       totalMinutes,
       totalHoursLabel: formatHoursFromMinutes(totalMinutes),
-      recentActivities: sessions.slice(0, 5),
+      recentActivities: sessions,
       activitiesDistribution: activitiesMap,
       lastSession,
       period: days,
