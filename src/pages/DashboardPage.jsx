@@ -31,6 +31,13 @@ const PERIOD_OPTIONS = [
   { label: '30 dias', value: 30 },
 ];
 
+function normalizeProfileType(profileData) {
+  return String(profileData?.papel || profileData?.perfil || '')
+    .normalize('NFC')
+    .trim()
+    .toLowerCase();
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   
@@ -53,6 +60,11 @@ export default function DashboardPage() {
   const [filteredAthletesForTrainer, setFilteredAthletesForTrainer] = useState([]);
   const [loadingFilters, setLoadingFilters] = useState(false);
 
+  const profileType = useMemo(() => normalizeProfileType(profile), [profile]);
+  const isCoach = profileType === PROFILE_TYPES.COACH;
+  const isTrainer = profileType === PROFILE_TYPES.TRAINER;
+  const isAthlete = profileType === PROFILE_TYPES.ATHLETE;
+
   // Main effect: load profile and initialize filters
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -69,15 +81,17 @@ export default function DashboardPage() {
         const profileData = await getCurrentUserProfile(user.uid);
         setProfile(profileData);
 
+        const profileType = normalizeProfileType(profileData);
+
         // Initialize filters based on profile
-        if (profileData?.perfil === PROFILE_TYPES.COACH) {
+        if (profileType === PROFILE_TYPES.COACH) {
           await loadCoachFilters(user.uid);
-        } else if (profileData?.perfil === PROFILE_TYPES.TRAINER) {
+        } else if (profileType === PROFILE_TYPES.TRAINER) {
           await loadTrainerFilters(user.uid);
         }
         
         // Load initial stats with explicit profile type
-        await loadDashboardStats(user.uid, 7, profileData?.perfil, null, null);
+        await loadDashboardStats(user.uid, 7, profileType, null, null);
       } catch (error) {
         console.error('Error loading dashboard:', error);
       } finally {
@@ -171,19 +185,19 @@ export default function DashboardPage() {
       loadDashboardStats(
         userInfo.uid,
         selectedPeriod,
-        profile?.perfil,
+        profileType,
         selectedTrainer,
         selectedAthlete
       );
     }
-  }, [selectedPeriod, selectedAthlete, selectedTrainer, profile?.perfil]);
+  }, [selectedPeriod, selectedAthlete, selectedTrainer, profileType]);
 
   // Render filters based on profile
   const renderFilters = () => {
     return (
       <div style={styles.filterBar}>
         {/* Trainer filter for Coach */}
-        {profile?.perfil === PROFILE_TYPES.COACH && trainers.length > 0 && (
+        {isCoach && trainers.length > 0 && (
           <div style={styles.filterGroup}>
             <label style={styles.filterLabel}>Treinador</label>
             <select
@@ -202,7 +216,7 @@ export default function DashboardPage() {
         )}
 
         {/* Athlete filter for Coach or Trainer */}
-        {profile?.perfil === PROFILE_TYPES.COACH &&
+        {isCoach &&
           filteredAthletesForTrainer.length > 0 && (
             <div style={styles.filterGroup}>
               <label style={styles.filterLabel}>Atleta</label>
@@ -220,7 +234,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-        {profile?.perfil === PROFILE_TYPES.TRAINER && athletes.length > 0 && (
+        {isTrainer && athletes.length > 0 && (
           <div style={styles.filterGroup}>
             <label style={styles.filterLabel}>Atleta</label>
             <select
@@ -269,18 +283,15 @@ export default function DashboardPage() {
   }
 
   const displayName = profile?.nome || userInfo?.displayName || 'Usuário';
-  const papelBruto = profile?.papel;
-  const papelNormalizado = String(papelBruto || '').normalize('NFC').trim().toLowerCase();
-  const isAthlete = papelNormalizado === PROFILE_TYPES.ATHLETE;
   
   // Get the target name for display          
   let targetDisplayName = displayName;
   if (!isAthlete && selectedAthlete) {
     // Find the athlete name from filtered lists
-    if (profile?.perfil === PROFILE_TYPES.COACH) {
+    if (isCoach) {
       const athlete = filteredAthletesForTrainer.find((a) => a.id === selectedAthlete);
       targetDisplayName = athlete?.nome || displayName;
-    } else if ( profile?.perfil === PROFILE_TYPES.TRAINER) {
+    } else if (isTrainer) {
       const athlete = athletes.find((a) => a.id === selectedAthlete);
       targetDisplayName = athlete?.nome || displayName;
     }
