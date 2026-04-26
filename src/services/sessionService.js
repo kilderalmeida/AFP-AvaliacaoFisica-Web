@@ -196,7 +196,7 @@ export async function getActiveSession(uid) {
     return null;
   }
 }
-
+ 
 /**
  * Cria um novo check-in.
  *
