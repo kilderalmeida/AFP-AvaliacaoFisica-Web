@@ -437,19 +437,11 @@ export function convertToDate(value) {
  */
 export async function getAthletesByCoach(coachUid) {
   try {
-    const [coachIdSnap, coachIdUpperSnap, coachAvaliadorSnap] = await Promise.all([
-      getDocs(query(collection(db, 'users'), where('coach_id', '==', coachUid))),
-      getDocs(query(collection(db, 'users'), where('coach_Id', '==', coachUid))),
-      getDocs(query(collection(db, 'users'), where('coach_avaliador_id', '==', coachUid))),
-    ]);
-
-    const mergedUsers = mergeUniqueUsersById(
-      coachIdSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
-      coachIdUpperSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
-      coachAvaliadorSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const snap = await getDocs(
+      query(collection(db, 'users'), where('coach_id', '==', coachUid))
     );
-
-    return mergedUsers.filter((user) => normalizeUserRole(user) === 'atleta');
+    const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return users.filter((user) => normalizeUserRole(user) === 'atleta');
   } catch (error) {
     console.error('Erro ao buscar atletas do coach:', error);
     return [];
@@ -466,17 +458,14 @@ export async function getAthletesByCoach(coachUid) {
  */
 export async function getAthletesByTrainer(trainerUid) {
   try {
-    const [treinadorIdSnap, trainerIdSnap] = await Promise.all([
-      getDocs(query(collection(db, 'users'), where('treinador_id', '==', trainerUid))),
-      getDocs(query(collection(db, 'users'), where('trainer_id', '==', trainerUid))),
-    ]);
-
-    const mergedUsers = mergeUniqueUsersById(
-      treinadorIdSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
-      trainerIdSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const snap = await getDocs(
+      query(collection(db, 'users'), where('treinador_id', '==', trainerUid))
     );
-
-    return mergedUsers.filter((user) => normalizeUserRole(user) === 'atleta');
+    const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const athletes = users.filter((user) => normalizeUserRole(user) === 'atleta');
+    console.log('[sessionService][debug] atletas encontrados para treinador:', athletes.length);
+    console.log('[sessionService][debug] atletas encontrados para treinador selecionado:', athletes.length);
+    return athletes;
   } catch (error) {
     console.error('Erro ao buscar atletas do treinador:', error);
     return [];
@@ -491,17 +480,13 @@ export async function getAthletesByTrainer(trainerUid) {
  */
 export async function getTrainersByCoach(coachUid) {
   try {
-    const [coachIdSnap, coachIdUpperSnap] = await Promise.all([
-      getDocs(query(collection(db, 'users'), where('coach_id', '==', coachUid))),
-      getDocs(query(collection(db, 'users'), where('coach_Id', '==', coachUid))),
-    ]);
-
-    const mergedUsers = mergeUniqueUsersById(
-      coachIdSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
-      coachIdUpperSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const snap = await getDocs(
+      query(collection(db, 'users'), where('coach_id', '==', coachUid))
     );
-
-    return mergedUsers.filter((user) => normalizeUserRole(user) === 'treinador');
+    const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const trainers = users.filter((user) => normalizeUserRole(user) === 'treinador');
+    console.log('[sessionService][debug] treinadores encontrados para coach:', trainers.length);
+    return trainers;
   } catch (error) {
     console.error('Erro ao buscar treinadores:', error);
     return [];
