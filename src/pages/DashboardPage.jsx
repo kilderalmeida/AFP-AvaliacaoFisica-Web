@@ -621,6 +621,7 @@ const styles = {
     color: '#1f2937',
     flex: 1,
     minWidth: 0,
+    textAlign: 'left',
     overflowWrap: 'anywhere',
     wordBreak: 'break-word',
     lineHeight: 1.3,
