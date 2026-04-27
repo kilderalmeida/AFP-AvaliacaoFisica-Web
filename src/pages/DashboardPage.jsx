@@ -82,8 +82,6 @@ export default function DashboardPage() {
         setProfile(profileData);
 
         const profileType = normalizeProfileType(profileData);
-        console.log('[Dashboard][debug] profile:', profileData);
-        console.log('[Dashboard][debug] profileType:', profileType);
 
         // Initialize filters based on profile
         if (profileType === PROFILE_TYPES.COACH) {
@@ -93,7 +91,7 @@ export default function DashboardPage() {
         }
         
         // Load initial stats with explicit profile type
-        await loadDashboardStats(user.uid, 7, profileType, null, null);
+        await loadDashboardStats(user.uid, 7, profileType, null);
       } catch (error) {
         console.error('Error loading dashboard:', error);
       } finally {
@@ -114,9 +112,6 @@ export default function DashboardPage() {
       ]);
       setTrainers(trainersData);
       setFilteredAthletesForTrainer(athletesByCoachData || []);
-      console.log('[Dashboard][debug] trainers.length:', trainersData.length);
-      console.log('[Dashboard][debug] athletes.length:', athletesByCoachData.length);
-      console.log('[Dashboard][debug] filteredAthletesForTrainer.length:', (athletesByCoachData || []).length);
       
       if (trainersData?.length > 0) {
         const firstTrainerId = trainersData[0]?.id;
@@ -138,7 +133,6 @@ export default function DashboardPage() {
       setLoadingFilters(true);
       const athletesData = await getAthletesByTrainer(trainerUid);
       setAthletes(athletesData);
-      console.log('[Dashboard][debug] athletes.length:', athletesData.length);
       
       if (athletesData?.length > 0) {
         setSelectedAthlete(athletesData[0]?.id);
@@ -160,7 +154,6 @@ export default function DashboardPage() {
     try {
       const athletesData = await getAthletesByTrainer(trainerId);
       setFilteredAthletesForTrainer(athletesData);
-      console.log('[Dashboard][debug] filteredAthletesForTrainer.length:', athletesData.length);
       
       if (athletesData?.length > 0) {
         setSelectedAthlete(athletesData[0]?.id);
@@ -177,7 +170,7 @@ export default function DashboardPage() {
   };
 
   // Load dashboard stats
-  const loadDashboardStats = async (uid, period, profileType, trainerId, athleteId) => {
+  const loadDashboardStats = async (uid, period, profileType, athleteId) => {
     try {
       if (
         (profileType === PROFILE_TYPES.COACH || profileType === PROFILE_TYPES.TRAINER) &&
@@ -219,11 +212,10 @@ export default function DashboardPage() {
         userInfo.uid,
         selectedPeriod,
         profileType,
-        selectedTrainer,
         selectedAthlete
       );
     }
-  }, [selectedPeriod, selectedAthlete, selectedTrainer, profileType]);
+  }, [userInfo, selectedPeriod, selectedAthlete, profileType]);
 
   // Render filters based on profile
   const renderFilters = () => {
@@ -316,21 +308,7 @@ export default function DashboardPage() {
   }
 
   const displayName = profile?.nome || userInfo?.displayName || 'Usuário';
-  
-  // Get the target name for display          
-  let targetDisplayName = displayName;
-  if (!isAthlete && selectedAthlete) {
-    // Find the athlete name from filtered lists
-    if (isCoach) {
-      const athlete = filteredAthletesForTrainer.find((a) => a.id === selectedAthlete);
-      targetDisplayName = athlete?.nome || displayName;
-    } else if (isTrainer) {
-      const athlete = athletes.find((a) => a.id === selectedAthlete);
-      targetDisplayName = athlete?.nome || displayName;
-    }
-  }
-  // console.log('profile:', profile);
-  // console.log('isAthlete:', isAthlete);
+
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -427,13 +405,13 @@ export default function DashboardPage() {
         )}
 
         {/* Activities Distribution */}
-        {stats?.activitiesDistribution && stats.activitiesDistribution.size > 0 && (
+        {stats?.activitiesDistribution && Object.keys(stats.activitiesDistribution).length > 0 && (
           <section style={styles.activitiesSection}>
             <div style={styles.sectionHeader}>
               <h2 style={styles.sectionTitle}>Distribuição de atividades</h2>
             </div>
             <div style={styles.activitiesGrid}>
-              {Array.from(stats.activitiesDistribution.entries()).map(([activity, count]) => (
+              {Object.entries(stats.activitiesDistribution).map(([activity, count]) => (
                 <div key={activity} style={styles.activityItem}>
                   <span style={styles.activityName}>{activity}</span>
                   <span style={styles.activityCount}>{count}</span>
