@@ -176,7 +176,21 @@
   text-align: left;
 }
 
-.field-link,
+.field-link {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 0;
+  margin-top: 2px;
+  color: var(--login-accent-strong);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
 .login-footer a {
   display: inline-flex;
   align-items: center;
@@ -186,7 +200,6 @@
   text-decoration: none;
   font-weight: 600;
   font-size: 0.9rem;
-  margin-top: 8px;
 }
 
 .field-link:hover,
