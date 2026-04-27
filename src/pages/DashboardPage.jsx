@@ -142,9 +142,14 @@ export default function DashboardPage() {
       
       if (athletesData?.length > 0) {
         setSelectedAthlete(athletesData[0]?.id);
+      } else {
+        setSelectedAthlete(null);
+        setStats(null);
       }
     } catch (error) {
       console.error('Error loading athlete list:', error);
+      setSelectedAthlete(null);
+      setStats(null);
     } finally {
       setLoadingFilters(false);
     }
@@ -159,15 +164,29 @@ export default function DashboardPage() {
       
       if (athletesData?.length > 0) {
         setSelectedAthlete(athletesData[0]?.id);
+      } else {
+        setSelectedAthlete(null);
+        setStats(null);
       }
     } catch (error) {
       console.error('Error loading athletes for trainer:', error);
+      setFilteredAthletesForTrainer([]);
+      setSelectedAthlete(null);
+      setStats(null);
     }
   };
 
   // Load dashboard stats
   const loadDashboardStats = async (uid, period, profileType, trainerId, athleteId) => {
     try {
+      if (
+        (profileType === PROFILE_TYPES.COACH || profileType === PROFILE_TYPES.TRAINER) &&
+        !athleteId
+      ) {
+        setStats(null);
+        return;
+      }
+
       let targetUid = uid;
 
       if ((profileType === PROFILE_TYPES.COACH || profileType === PROFILE_TYPES.TRAINER) && athleteId) {
@@ -184,6 +203,9 @@ export default function DashboardPage() {
 
   // Handle trainer change (for coach profile)
   const handleTrainerChange = async (newTrainerId) => {
+    setSelectedAthlete(null);
+    setStats(null);
+    setFilteredAthletesForTrainer([]);
     setSelectedTrainer(newTrainerId);
     if (newTrainerId) {
       await loadAthletesForTrainer(newTrainerId);
