@@ -178,6 +178,10 @@
 
 .field-link,
 .login-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 4px 0;
   color: var(--login-accent-strong);
   text-decoration: none;
   font-weight: 600;
@@ -250,6 +254,7 @@
   transform: translateY(-50%);
   border: none;
   border-radius: 12px;
+  min-height: 40px;
   padding: 8px 12px;
   background: transparent;
   color: var(--login-accent-strong);
@@ -353,42 +358,81 @@
 }
 
 @media (max-width: 920px) {
+  .login-page {
+    padding: 14px;
+    align-items: stretch;
+  }
+
   .login-shell {
     grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 100%;
+    gap: 0;
   }
 
   .login-hero {
-    padding: 28px;
-    gap: 24px;
+    display: none;
   }
 
-  .login-hero-copy {
-    max-width: none;
+  .login-container {
+    width: 100%;
+    max-width: 100%;
+    min-height: auto;
+    padding: 20px;
+    border-radius: 18px;
+    box-shadow: 0 12px 28px rgba(63, 44, 20, 0.12);
+  }
+
+  .login-header {
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .login-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.92rem;
+    line-height: 1.4;
+  }
+
+  .login-form {
+    gap: 14px;
+  }
+
+  .form-group {
+    gap: 6px;
+  }
+
+  .form-status {
+    min-height: 44px;
+  }
+
+  .helper-message,
+  .info-message,
+  .error-message {
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 14px;
+    font-size: 0.9rem;
   }
 }
 
 @media (max-width: 560px) {
   .login-page {
+    padding: 10px;
+  }
+
+  .login-container {
+    border-radius: 14px;
     padding: 16px;
-  }
-
-  .login-hero,
-  .login-container {
-    border-radius: 22px;
-  }
-
-  .login-hero,
-  .login-container {
-    padding: 22px;
-  }
-
-  .login-hero-metrics {
-    grid-template-columns: 1fr;
   }
 
   .field-header {
     align-items: flex-start;
     flex-direction: column;
+    gap: 2px;
   }
 
   .password-field input {
@@ -398,11 +442,30 @@
   .password-toggle {
     position: static;
     transform: none;
-    margin-top: 10px;
-    padding: 0;
+    width: fit-content;
+    min-height: 44px;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid rgba(109, 91, 74, 0.22);
+    background: rgba(255, 255, 255, 0.55);
+    border-radius: 10px;
   }
 
   .submit-button {
     width: 100%;
+    min-height: 52px;
+  }
+
+  .form-group input {
+    min-height: 50px;
+  }
+
+  .login-footer {
+    margin-top: 16px;
+    padding-top: 14px;
+  }
+
+  .login-footer p {
+    font-size: 0.9rem;
   }
 }
