@@ -613,11 +613,17 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: '10px',
   },
   activityName: {
     fontSize: '14px',
     fontWeight: 500,
     color: '#1f2937',
+    flex: 1,
+    minWidth: 0,
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-word',
+    lineHeight: 1.3,
   },
   activityCount: {
     fontSize: '14px',
@@ -627,6 +633,8 @@ const styles = {
     padding: '4px 8px',
     borderRadius: '4px',
     marginLeft: '8px',
+    flexShrink: 0,
+    whiteSpace: 'nowrap',
   },
   sessionHistorySection: {
     background: '#ffffff',

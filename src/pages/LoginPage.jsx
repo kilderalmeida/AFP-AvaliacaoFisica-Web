@@ -71,7 +71,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="login-form" aria-busy={isBusy}>
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="email" className="form-label">Email</label>
               <input
                 id="email"
                 name="email"
@@ -89,12 +89,7 @@ export default function LoginPage() {
             </div>
 
             <div className="form-group">
-              <div className="field-header">
-                <label htmlFor="password">Senha</label>
-                <a className="field-link" href="/reset-password">
-                  Esqueceu sua senha?
-                </a>
-              </div>
+              <label htmlFor="password" className="form-label">Senha</label>
               <div className="password-field">
                 <input
                   id="password"
@@ -120,6 +115,9 @@ export default function LoginPage() {
                   {showPassword ? 'Ocultar' : 'Mostrar'}
                 </button>
               </div>
+              <a className="field-link" href="/reset-password">
+                Esqueceu sua senha?
+              </a>
             </div>
 
             <div className="form-status" aria-live="polite">

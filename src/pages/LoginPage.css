@@ -85,7 +85,6 @@
 }
 
 .login-hero-copy {
-  max-width: 34ch;
   font-size: 1.02rem;
   line-height: 1.65;
   color: rgba(255, 248, 240, 0.78);
@@ -174,6 +173,7 @@
   font-size: 0.92rem;
   font-weight: 600;
   color: var(--login-text);
+  text-align: left;
 }
 
 .field-link,
@@ -181,10 +181,12 @@
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 4px 0;
+  padding: 8px 0;
   color: var(--login-accent-strong);
   text-decoration: none;
   font-weight: 600;
+  font-size: 0.9rem;
+  margin-top: 8px;
 }
 
 .field-link:hover,
