@@ -11,6 +11,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase/config.js';
+import './DashboardPage.css';
 import {
   getCurrentUserProfile,
   getDashboardStatsByPeriod,
@@ -220,15 +221,16 @@ export default function DashboardPage() {
   // Render filters based on profile
   const renderFilters = () => {
     return (
-      <div style={styles.filterBar}>
+      <div style={styles.filterBar} className="dashboard-filter-bar">
         {/* Trainer filter for Coach */}
         {isCoach && trainers.length > 0 && (
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>Treinador</label>
+          <div style={styles.filterGroup} className="dashboard-filter-group">
+            <label style={styles.filterLabel} className="dashboard-filter-label">Treinador</label>
             <select
               value={selectedTrainer || ''}
               onChange={(e) => handleTrainerChange(e.target.value)}
               style={styles.filterSelect}
+              className="dashboard-filter-select"
               disabled={loadingFilters}
             >
               {trainers.map((trainer) => (
@@ -243,12 +245,13 @@ export default function DashboardPage() {
         {/* Athlete filter for Coach or Trainer */}
         {isCoach &&
           filteredAthletesForTrainer.length > 0 && (
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>Atleta</label>
+            <div style={styles.filterGroup} className="dashboard-filter-group">
+              <label style={styles.filterLabel} className="dashboard-filter-label">Atleta</label>
               <select
                 value={selectedAthlete || ''}
                 onChange={(e) => setSelectedAthlete(e.target.value)}
                 style={styles.filterSelect}
+                className="dashboard-filter-select"
               >
                 {filteredAthletesForTrainer.map((athlete) => (
                   <option key={athlete.id} value={athlete.id}>
@@ -260,12 +263,13 @@ export default function DashboardPage() {
           )}
 
         {isTrainer && athletes.length > 0 && (
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>Atleta</label>
+          <div style={styles.filterGroup} className="dashboard-filter-group">
+            <label style={styles.filterLabel} className="dashboard-filter-label">Atleta</label>
             <select
               value={selectedAthlete || ''}
               onChange={(e) => setSelectedAthlete(e.target.value)}
               style={styles.filterSelect}
+              className="dashboard-filter-select"
             >
               {athletes.map((athlete) => (
                 <option key={athlete.id} value={athlete.id}>
@@ -277,12 +281,13 @@ export default function DashboardPage() {
         )}
 
         {/* Period filter for all profiles */}
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Período</label>
+        <div style={styles.filterGroup} className="dashboard-filter-group">
+          <label style={styles.filterLabel} className="dashboard-filter-label">Período</label>
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(Number(e.target.value))}
             style={styles.filterSelect}
+            className="dashboard-filter-select"
           >
             {PERIOD_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -311,36 +316,39 @@ export default function DashboardPage() {
 
   return (
     <div style={styles.page}>
-      <header style={styles.header}>
+      <header style={styles.header} className="dashboard-header-section">
         <div>
-          <p style={styles.eyebrow}>Painel do dashboard</p>
-          <h1 style={styles.title}>Dashboard</h1>
-          <p style={styles.subtitle}>Olá, {displayName}</p>
+          <p style={styles.eyebrow} className="dashboard-eyebrow">Painel do dashboard</p>
+          <h1 style={styles.title} className="dashboard-title">Dashboard</h1>
+          <p style={styles.subtitle} className="dashboard-subtitle">Olá, {displayName}</p>
         </div>
       </header>
 
-      <main style={styles.content}>
+      <main style={styles.content} className="dashboard-content-grid">
         {/* Quick Actions - Only for Athletes */}
         {isAthlete && (
-          <section style={styles.actionsSection}>
-            <div style={styles.sectionHeader}>
-              <h2 style={styles.sectionTitle}>Ações rápidas</h2>
+          <section style={styles.actionsSection} className="dashboard-actions-section">
+            <div style={styles.sectionHeader} className="dashboard-section-header">
+              <h2 style={styles.sectionTitle} className="dashboard-section-title">Ações rápidas</h2>
             </div>
-            <div style={styles.actionsGrid}>
+            <div style={styles.actionsGrid} className="dashboard-actions-grid">
               <button
                 style={styles.primaryButton}
+                className="dashboard-button"
                 onClick={() => navigate('/checkin')}
               >
                 Check-in
               </button>
               <button
                 style={styles.secondaryButton}
+                className="dashboard-button"
                 onClick={() => navigate('/checkout')}
               >
                 Check-out
               </button>
               <button
                 style={styles.secondaryButton}
+                className="dashboard-button"
                 onClick={() => navigate('/avaliacao-pafp')}
               >
                 Avaliação
@@ -354,26 +362,26 @@ export default function DashboardPage() {
 
         {/* Last Activity */}
         {stats?.lastSession && (
-          <section style={styles.lastActivitySection}>
-            <div style={styles.sectionHeader}>
-              <h2 style={styles.sectionTitle}>Última atividade</h2>
+          <section style={styles.lastActivitySection} className="dashboard-last-activity-section">
+            <div style={styles.sectionHeader} className="dashboard-section-header">
+              <h2 style={styles.sectionTitle} className="dashboard-section-title">Última atividade</h2>
             </div>
-            <div style={styles.lastActivityContent}>
+            <div style={styles.lastActivityContent} className="dashboard-last-activity-content">
               <div>
-                <span style={styles.activityLabel}>Atividade</span>
-                <p style={styles.activityValue}>
+                <span style={styles.activityLabel} className="dashboard-activity-label">Atividade</span>
+                <p style={styles.activityValue} className="dashboard-activity-value">
                   {stats.lastSession.atividades?.[0] || 'Sessão de treino'}
                 </p>
               </div>
               <div>
-                <span style={styles.activityLabel}>Data</span>
-                <p style={styles.activityValue}>
+                <span style={styles.activityLabel} className="dashboard-activity-label">Data</span>
+                <p style={styles.activityValue} className="dashboard-activity-value">
                   {formatDateTimeForDisplay(stats.lastSession.dataCheckin)}
                 </p>
               </div>
               <div>
-                <span style={styles.activityLabel}>Duração</span>
-                <p style={styles.activityValue}>
+                <span style={styles.activityLabel} className="dashboard-activity-label">Duração</span>
+                <p style={styles.activityValue} className="dashboard-activity-value">
                   {stats.lastSession.duracaoMin ? `${stats.lastSession.duracaoMin}m` : 'N/D'}
                 </p>
               </div>
@@ -383,22 +391,22 @@ export default function DashboardPage() {
 
         {/* Stats */}
         {stats && (
-          <section style={styles.statsSection}>
-            <div style={styles.sectionHeader}>
-              <h2 style={styles.sectionTitle}>Estatísticas ({stats.period}d)</h2>
+          <section style={styles.statsSection} className="dashboard-stats-section">
+            <div style={styles.sectionHeader} className="dashboard-section-header">
+              <h2 style={styles.sectionTitle} className="dashboard-section-title">Estatísticas ({stats.period}d)</h2>
             </div>
-            <div style={styles.statsGrid}>
-              <div style={styles.statCard}>
-                <span style={styles.statLabel}>Sessões</span>
-                <strong style={styles.statValue}>{stats.totalSessions}</strong>
+            <div style={styles.statsGrid} className="dashboard-stats-grid">
+              <div style={styles.statCard} className="dashboard-stat-card">
+                <span style={styles.statLabel} className="dashboard-stat-label">Sessões</span>
+                <strong style={styles.statValue} className="dashboard-stat-value">{stats.totalSessions}</strong>
               </div>
-              <div style={styles.statCard}>
-                <span style={styles.statLabel}>Horas</span>
-                <strong style={styles.statValue}>{stats.totalHoursLabel}</strong>
+              <div style={styles.statCard} className="dashboard-stat-card">
+                <span style={styles.statLabel} className="dashboard-stat-label">Horas</span>
+                <strong style={styles.statValue} className="dashboard-stat-value">{stats.totalHoursLabel}</strong>
               </div>
-              <div style={styles.statCard}>
-                <span style={styles.statLabel}>Minutos</span>
-                <strong style={styles.statValue}>{stats.totalMinutes}</strong>
+              <div style={styles.statCard} className="dashboard-stat-card">
+                <span style={styles.statLabel} className="dashboard-stat-label">Minutos</span>
+                <strong style={styles.statValue} className="dashboard-stat-value">{stats.totalMinutes}</strong>
               </div>
             </div>
           </section>
@@ -406,15 +414,15 @@ export default function DashboardPage() {
 
         {/* Activities Distribution */}
         {stats?.activitiesDistribution && Object.keys(stats.activitiesDistribution).length > 0 && (
-          <section style={styles.activitiesSection}>
-            <div style={styles.sectionHeader}>
-              <h2 style={styles.sectionTitle}>Distribuição de atividades</h2>
+          <section style={styles.activitiesSection} className="dashboard-activities-section">
+            <div style={styles.sectionHeader} className="dashboard-section-header">
+              <h2 style={styles.sectionTitle} className="dashboard-section-title">Distribuição de atividades</h2>
             </div>
-            <div style={styles.activitiesGrid}>
+            <div style={styles.activitiesGrid} className="dashboard-activities-grid">
               {Object.entries(stats.activitiesDistribution).map(([activity, count]) => (
-                <div key={activity} style={styles.activityItem}>
-                  <span style={styles.activityName}>{activity}</span>
-                  <span style={styles.activityCount}>{count}</span>
+                <div key={activity} style={styles.activityItem} className="dashboard-activity-item">
+                  <span style={styles.activityName} className="dashboard-activity-name">{activity}</span>
+                  <span style={styles.activityCount} className="dashboard-activity-count">{count}</span>
                 </div>
               ))}
             </div>
@@ -423,27 +431,27 @@ export default function DashboardPage() {
 
         {/* Session History */}
         {stats?.recentActivities && (
-          <section style={styles.sessionHistorySection}>
-            <div style={styles.sectionHeader}>
-              <h2 style={styles.sectionTitle}>Histórico de sessões</h2>
+          <section style={styles.sessionHistorySection} className="dashboard-session-history-section">
+            <div style={styles.sectionHeader} className="dashboard-section-header">
+              <h2 style={styles.sectionTitle} className="dashboard-section-title">Histórico de sessões</h2>
             </div>
             {stats.recentActivities.length === 0 ? (
               <div style={styles.emptyState}>
                 Nenhuma sessão registrada neste período
               </div>
             ) : (
-              <div style={styles.sessionList}>
+              <div style={styles.sessionList} className="dashboard-session-list">
                 {stats.recentActivities.map((session, index) => (
-                  <article key={index} style={styles.sessionItem}>
+                  <article key={index} style={styles.sessionItem} className="dashboard-session-item">
                     <div style={styles.sessionInfo}>
-                      <p style={styles.sessionActivity}>
+                      <p style={styles.sessionActivity} className="dashboard-session-activity">
                         {session.atividades?.[0] || 'Sessão de treino'}
                       </p>
-                      <p style={styles.sessionDate}>
+                      <p style={styles.sessionDate} className="dashboard-session-date">
                         {formatDateTimeForDisplay(session.dataCheckin)}
                       </p>
                     </div>
-                    <span style={styles.sessionDuration}>
+                    <span style={styles.sessionDuration} className="dashboard-session-duration">
                       {session.duracaoMin ? `${session.duracaoMin}m` : 'N/D'}
                     </span>
                   </article>

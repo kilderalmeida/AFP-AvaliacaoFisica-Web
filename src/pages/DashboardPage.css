@@ -1,0 +1,213 @@
+/**
+ * Dashboard Page - Mobile-first responsive refinements
+ * Reduces density, improves hierarchy and ergonomics on small screens
+ * Desktop styles are maintained via inline styles in component
+ */
+
+@media (max-width: 768px) {
+  /* Reduce top visual weight */
+  .dashboard-header-section {
+    margin-bottom: 12px !important;
+  }
+
+  .dashboard-title {
+    font-size: 32px !important;
+    margin: 4px 0 2px !important;
+  }
+
+  .dashboard-eyebrow {
+    font-size: 12px !important;
+  }
+
+  .dashboard-subtitle {
+    font-size: 16px !important;
+  }
+
+  /* Compact content spacing */
+  .dashboard-content-grid {
+    gap: 16px !important;
+  }
+
+  /* Reduce section header margins */
+  .dashboard-section-header {
+    margin-bottom: 12px !important;
+    gap: 8px !important;
+  }
+
+  .dashboard-section-title {
+    font-size: 16px !important;
+  }
+
+  /* Actions section refinements */
+  .dashboard-actions-section {
+    padding: 14px !important;
+  }
+
+  .dashboard-actions-grid {
+    gap: 10px !important;
+  }
+
+  .dashboard-button {
+    padding: 9px 12px !important;
+    font-size: 13px !important;
+    min-height: 44px;
+    flex: 1;
+  }
+
+  /* Filter bar refinements */
+  .dashboard-filter-bar {
+    padding: 12px !important;
+    gap: 12px !important;
+  }
+
+  .dashboard-filter-group {
+    gap: 4px !important;
+  }
+
+  .dashboard-filter-select {
+    padding: 8px 10px !important;
+    font-size: 13px !important;
+    min-height: 40px;
+  }
+
+  .dashboard-filter-label {
+    font-size: 11px !important;
+  }
+
+  /* Last activity refinements */
+  .dashboard-last-activity-section {
+    padding: 14px !important;
+  }
+
+  .dashboard-last-activity-content {
+    gap: 12px !important;
+  }
+
+  .dashboard-activity-label {
+    font-size: 11px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .dashboard-activity-value {
+    font-size: 14px !important;
+  }
+
+  /* Stats section refinements */
+  .dashboard-stats-section {
+    padding: 14px !important;
+  }
+
+  .dashboard-stats-grid {
+    gap: 10px !important;
+  }
+
+  .dashboard-stat-card {
+    padding: 12px !important;
+  }
+
+  .dashboard-stat-label {
+    font-size: 10px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .dashboard-stat-value {
+    font-size: 20px !important;
+  }
+
+  /* Activities distribution - lighter density */
+  .dashboard-activities-section {
+    padding: 14px !important;
+  }
+
+  .dashboard-activities-grid {
+    gap: 10px !important;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
+  }
+
+  .dashboard-activity-item {
+    padding: 10px !important;
+  }
+
+  .dashboard-activity-name {
+    font-size: 13px !important;
+  }
+
+  .dashboard-activity-count {
+    font-size: 12px !important;
+    padding: 2px 6px !important;
+  }
+
+  /* Session history refinements */
+  .dashboard-session-history-section {
+    padding: 14px !important;
+  }
+
+  .dashboard-session-list {
+    gap: 10px !important;
+  }
+
+  .dashboard-session-item {
+    padding: 10px !important;
+  }
+
+  .dashboard-session-activity {
+    margin: 0 0 2px 0 !important;
+    font-size: 13px !important;
+  }
+
+  .dashboard-session-date {
+    font-size: 11px !important;
+  }
+
+  .dashboard-session-duration {
+    font-size: 13px !important;
+    margin-left: 10px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra compact on very small screens */
+  .dashboard-header-section {
+    margin-bottom: 8px !important;
+    padding: 16px 10px !important;
+  }
+
+  .dashboard-title {
+    font-size: 28px !important;
+  }
+
+  .dashboard-content-grid {
+    gap: 12px !important;
+    padding: 0 10px;
+  }
+
+  .dashboard-actions-section,
+  .dashboard-filter-bar,
+  .dashboard-last-activity-section,
+  .dashboard-stats-section,
+  .dashboard-activities-section,
+  .dashboard-session-history-section {
+    border-radius: 10px !important;
+    padding: 12px !important;
+  }
+
+  .dashboard-button {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    min-height: 40px;
+  }
+
+  .dashboard-filter-select {
+    padding: 7px 8px !important;
+    font-size: 12px !important;
+    min-height: 38px;
+  }
+
+  .dashboard-stat-value {
+    font-size: 18px !important;
+  }
+
+  .dashboard-activities-grid {
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)) !important;
+  }
+}
