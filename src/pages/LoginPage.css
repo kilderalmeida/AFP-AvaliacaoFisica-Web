@@ -241,26 +241,49 @@
 
 .password-field {
   position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(109, 91, 74, 0.22);
+  border-radius: 16px;
+  background: var(--login-surface-strong);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.password-field:focus-within {
+  border-color: var(--login-accent);
+  box-shadow: 0 0 0 4px rgba(14, 124, 102, 0.18);
 }
 
 .password-field input {
   padding-right: 100px;
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--login-text);
+  font: inherit;
+  padding: 14px 16px;
+}
+
+.password-field input::placeholder {
+  color: #9a8b7c;
 }
 
 .password-toggle {
   position: absolute;
+  right: 8px;
   top: 50%;
-  right: 10px;
   transform: translateY(-50%);
   border: none;
-  border-radius: 12px;
-  min-height: 40px;
-  padding: 8px 12px;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 6px 10px;
   background: transparent;
   color: var(--login-accent-strong);
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 0.85rem;
   font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .form-status {
@@ -435,41 +458,55 @@
     gap: 2px;
   }
 
-  .password-field input {
-    padding-right: 16px;
-  }
-
   .password-field {
-    display: grid;
-    gap: 8px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    border: 1px solid rgba(109, 91, 74, 0.22);
+    border-radius: 14px;
+    background: var(--login-surface-strong);
+    padding: 0;
+  }
+
+  .password-field:focus-within {
+    border-color: var(--login-accent);
+    box-shadow: 0 0 0 4px rgba(14, 124, 102, 0.18);
   }
 
   .password-field input {
-    padding-right: 16px;
+    padding: 13px 14px;
+    padding-right: 80px;
+    flex: 1;
+    border: none;
+    background: transparent;
+    min-height: 44px;
+    font-size: 16px;
   }
 
   .password-toggle {
-    position: static;
-    transform: none;
-    width: 100%;
-    min-height: 44px;
-    margin-top: 0;
-    padding: 12px 14px;
-    border: 1px solid rgba(14, 124, 102, 0.3);
-    background: linear-gradient(135deg, rgba(14, 124, 102, 0.08) 0%, rgba(18, 155, 127, 0.06) 100%);
-    border-radius: 12px;
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    min-height: 36px;
+    padding: 6px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
     color: var(--login-accent-strong);
+    font-size: 0.8rem;
     font-weight: 700;
+    white-space: nowrap;
     transition: all 0.2s ease;
   }
 
   .password-toggle:hover:not(:disabled) {
-    background: linear-gradient(135deg, rgba(14, 124, 102, 0.14) 0%, rgba(18, 155, 127, 0.12) 100%);
-    border-color: var(--login-accent);
+    background: rgba(14, 124, 102, 0.08);
+    color: var(--login-accent);
   }
 
   .password-toggle:active:not(:disabled) {
-    transform: scale(0.98);
+    transform: translateY(-50%) scale(0.95);
   }
 
   .submit-button {
