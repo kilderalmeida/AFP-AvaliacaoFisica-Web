@@ -17,6 +17,7 @@ import {
   formatDateTimeForDisplay,
 } from '../services/sessionService.js';
 import { useNavigate } from 'react-router-dom';
+import { PainMap, usePainRegions } from '../components/pain-map';
 
 const activityOptions = [
   'Musculação',
@@ -31,17 +32,6 @@ const activityOptions = [
 ];
 
 const recoveryOptions = ['Excelente', 'Muito boa', 'Boa', 'Regular', 'Ruim'];
-
-const painRegions = [
-  'Costas',
-  'Pernas',
-  'Ombros',
-  'Pescoço',
-  'Joelhos',
-  'Pé',
-  'Braços',
-  'Quadril',
-];
 
 const initialForm = {
   atividades: [],
@@ -68,6 +58,12 @@ function toggleSelection(list, item) {
 
 export default function CheckInPage() {
   const navigate = useNavigate();
+  const {
+    selected,
+    toggleRegion,
+    selectedRegionDetails,
+    buildPainMapPayload,
+  } = usePainRegions();
   const [user, setUser] = useState(null);
   const [checkInData, setCheckInData] = useState(null);
   const [activeSession, setActiveSession] = useState(null);
@@ -77,6 +73,14 @@ export default function CheckInPage() {
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(initialForm);
+
+  useEffect(() => {
+    // Mantem o estado global do wizard alinhado com o novo mapa de dor.
+    setForm((prev) => ({
+      ...prev,
+      dorRegioes: selectedRegionDetails,
+    }));
+  }, [selectedRegionDetails]);
 
   useEffect(() => {
     /**
@@ -177,7 +181,7 @@ export default function CheckInPage() {
           humor: clampValue(Number(form.bemEstar.humor), 1, 5),
         },
         recuperacao: form.recuperacao,
-        dorRegioes: form.dorRegioes,
+        dorRegioes: buildPainMapPayload(),
         hidratacao: clampValue(Number(form.hidratacao), 1, 8),
       };
 
@@ -352,38 +356,32 @@ export default function CheckInPage() {
       case 5:
         return (
           <div>
-            <p style={{ marginTop: 0, marginBottom: '1.5rem', color: '#555', fontSize: '1rem' }}>Selecione as regiões de dor:</p>
-            <div className="checkin-options-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-              {painRegions.map((region) => (
-                <button
-                  key={region}
-                  type="button"
-                  className={`checkin-chip ${form.dorRegioes.includes(region) ? 'selected' : ''}`}
-                  style={{
-                    padding: '0.75rem 1.25rem',
-                    fontSize: '0.95rem',
-                    borderRadius: '20px',
-                    border: form.dorRegioes.includes(region) ? '2px solid #1565c0' : '1px solid #ccc',
-                    background: form.dorRegioes.includes(region) ? '#1565c0' : '#fff',
-                    color: form.dorRegioes.includes(region) ? '#fff' : '#555',
-                    cursor: 'pointer',
-                    fontWeight: form.dorRegioes.includes(region) ? 600 : 400,
-                    transition: 'all 0.2s',
-                    minHeight: '44px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                  onClick={() =>
-                    setForm((prev) => ({
-                      ...prev,
-                      dorRegioes: toggleSelection(prev.dorRegioes, region),
-                    }))
-                  }
-                >
-                  {region}
-                </button>
-              ))}
+            <p style={{ marginTop: 0, marginBottom: '1.5rem', color: '#555', fontSize: '1rem' }}>
+              Selecione as regiões de dor no mapa corporal:
+            </p>
+
+            <div style={{ display: 'grid', gap: '1rem', justifyItems: 'center' }}>
+              <PainMap selectedRegions={selected} onSelect={toggleRegion} />
+
+              <div style={{ width: '100%', maxWidth: '560px' }}>
+                <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', color: '#333' }}>
+                  Regiões selecionadas
+                </h3>
+
+                {selectedRegionDetails.length === 0 ? (
+                  <p style={{ margin: 0, color: '#6b7280', fontSize: '0.95rem' }}>
+                    Nenhuma região marcada. Clique nas áreas do corpo para indicar dor.
+                  </p>
+                ) : (
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem', display: 'grid', gap: '0.5rem' }}>
+                    {selectedRegionDetails.map((region) => (
+                      <li key={region.code} style={{ fontSize: '0.95rem', color: '#333' }}>
+                        <strong>{region.name}</strong> ({region.code}) - intensidade {region.intensity}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
         );
