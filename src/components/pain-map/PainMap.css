@@ -1,0 +1,116 @@
+.pain-map {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.pain-map-hint {
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.pain-map-canvas {
+  position: relative;
+  width: min(320px, 100%);
+  aspect-ratio: 1 / 2;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pain-map-body-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.pain-map-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.pain-map-overlay svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pain-map-loading,
+.pain-map-error {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.pain-map-loading {
+  color: #6b7280;
+}
+
+.pain-map-error {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.pain-map-overlay .pain-map-region {
+  cursor: pointer;
+  transition: fill 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease, opacity 0.15s ease;
+  outline: none;
+}
+
+.pain-map-overlay .pain-map-region:hover,
+.pain-map-overlay .pain-map-region:focus {
+  stroke: #0ea5e9;
+  stroke-width: 2;
+  opacity: 0.9;
+}
+
+.pain-map-overlay .pain-map-region--selected {
+  fill: rgba(239, 68, 68, var(--pain-fill-opacity, 0.45));
+  stroke: #dc2626;
+  stroke-width: 2;
+}
+
+.pain-map-overlay .pain-map-region--selected:hover {
+  fill: rgba(239, 68, 68, calc(var(--pain-fill-opacity, 0.45) + 0.15));
+}
+
+.pain-map-controls {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.pain-map-toggle-button {
+  border: none;
+  border-radius: 8px;
+  background: #007aff;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 10px 24px;
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.pain-map-toggle-button:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.pain-map-toggle-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pain-map-selected-count {
+  font-size: 0.85rem;
+  color: #6b7280;
+  min-height: 20px;
+}
