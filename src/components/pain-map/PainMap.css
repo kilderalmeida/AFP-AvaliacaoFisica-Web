@@ -12,22 +12,22 @@
 }
 
 .pain-map-canvas {
-  position: relative;
-  width: min(320px, 100%);
-  aspect-ratio: 1 / 2;
+  width: min(340px, 100%);
   border-radius: 16px;
-  overflow: hidden;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 10px;
+}
+
+.pain-map-figure {
+  position: relative;
+  width: 100%;
+  line-height: 0;
 }
 
 .pain-map-body-image {
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
   display: block;
 }
 
@@ -42,6 +42,7 @@
   width: 100%;
   height: 100%;
   display: block;
+  overflow: visible;
 }
 
 .pain-map-loading,
@@ -62,25 +63,29 @@
 
 .pain-map-overlay .pain-map-region {
   cursor: pointer;
-  transition: fill 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease, opacity 0.15s ease;
+  transition: fill 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease;
   outline: none;
+  stroke: rgba(31, 41, 55, 0.45);
+  stroke-width: 1.25;
+  fill: rgba(0, 0, 0, 0.001);
+  pointer-events: all;
 }
 
 .pain-map-overlay .pain-map-region:hover,
 .pain-map-overlay .pain-map-region:focus {
   stroke: #0ea5e9;
-  stroke-width: 2;
-  opacity: 0.9;
+  stroke-width: 2.2;
+  fill: rgba(14, 165, 233, 0.18);
 }
 
 .pain-map-overlay .pain-map-region--selected {
-  fill: rgba(239, 68, 68, var(--pain-fill-opacity, 0.45));
+  fill: rgba(239, 68, 68, 0.32);
   stroke: #dc2626;
-  stroke-width: 2;
+  stroke-width: 2.2;
 }
 
 .pain-map-overlay .pain-map-region--selected:hover {
-  fill: rgba(239, 68, 68, calc(var(--pain-fill-opacity, 0.45) + 0.15));
+  fill: rgba(239, 68, 68, 0.45);
 }
 
 .pain-map-controls {

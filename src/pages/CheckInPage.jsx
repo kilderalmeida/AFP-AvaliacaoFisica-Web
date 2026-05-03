@@ -62,7 +62,6 @@ export default function CheckInPage() {
     selected,
     toggleRegion,
     selectedRegionDetails,
-    buildPainMapPayload,
   } = usePainRegions();
   const [user, setUser] = useState(null);
   const [checkInData, setCheckInData] = useState(null);
@@ -78,7 +77,7 @@ export default function CheckInPage() {
     // Mantem o estado global do wizard alinhado com o novo mapa de dor.
     setForm((prev) => ({
       ...prev,
-      dorRegioes: selectedRegionDetails,
+      dorRegioes: selectedRegionDetails.map((region) => region.code),
     }));
   }, [selectedRegionDetails]);
 
@@ -181,7 +180,7 @@ export default function CheckInPage() {
           humor: clampValue(Number(form.bemEstar.humor), 1, 5),
         },
         recuperacao: form.recuperacao,
-        dorRegioes: buildPainMapPayload(),
+        dorRegioes: form.dorRegioes,
         hidratacao: clampValue(Number(form.hidratacao), 1, 8),
       };
 
@@ -376,7 +375,7 @@ export default function CheckInPage() {
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', display: 'grid', gap: '0.5rem' }}>
                     {selectedRegionDetails.map((region) => (
                       <li key={region.code} style={{ fontSize: '0.95rem', color: '#333' }}>
-                        <strong>{region.name}</strong> ({region.code}) - intensidade {region.intensity}
+                        <strong>{region.name}</strong> ({region.code})
                       </li>
                     ))}
                   </ul>

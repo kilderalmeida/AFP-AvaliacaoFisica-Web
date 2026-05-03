@@ -4,10 +4,11 @@ import {
   buildInteractiveSvgMarkup,
   resolvePainRegionIdFromEventTarget,
 } from './painMapSvg';
+import { getRegionBySvgId } from './usePainRegions';
 import './PainMap.css';
 
 export interface PainMapProps {
-  selectedRegions: Record<string, number>;
+  selectedRegions: Record<string, boolean>;
   onSelect: (svgId: string) => void;
 }
 
@@ -53,7 +54,11 @@ export const PainMap: React.FC<PainMapProps> = ({ selectedRegions, onSelect }) =
   }, [isBackView]);
 
   const interactiveSvgMarkup = useMemo(
-    () => buildInteractiveSvgMarkup(rawSvgMarkup, selectedRegions),
+    () =>
+      buildInteractiveSvgMarkup(rawSvgMarkup, (svgId) => {
+        const region = getRegionBySvgId(svgId);
+        return Boolean(region && selectedRegions[region.code]);
+      }),
     [rawSvgMarkup, selectedRegions],
   );
 
@@ -78,7 +83,7 @@ export const PainMap: React.FC<PainMapProps> = ({ selectedRegions, onSelect }) =
         )}
 
         {!isLoading && !loadError && (
-          <>
+          <div className="pain-map-figure">
             <img
               className="pain-map-body-image"
               src={isBackView ? bodyBack : bodyFront}
@@ -97,7 +102,7 @@ export const PainMap: React.FC<PainMapProps> = ({ selectedRegions, onSelect }) =
               }}
               dangerouslySetInnerHTML={{ __html: interactiveSvgMarkup }}
             />
-          </>
+          </div>
         )}
       </div>
 

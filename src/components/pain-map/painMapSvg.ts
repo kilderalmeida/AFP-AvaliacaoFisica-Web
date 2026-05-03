@@ -1,12 +1,5 @@
 const PAIN_ID_PREFIX = 'pain-';
 
-const clampOpacity = (intensity: number): number => {
-  const minOpacity = 0.25;
-  const maxOpacity = 0.8;
-  const normalized = Math.max(0, Math.min(10, intensity)) / 10;
-  return minOpacity + (maxOpacity - minOpacity) * normalized;
-};
-
 const isValidPainId = (id: string): boolean => {
   return id.startsWith(PAIN_ID_PREFIX) && id.length > PAIN_ID_PREFIX.length;
 };
@@ -27,7 +20,7 @@ export const resolvePainRegionIdFromEventTarget = (target: EventTarget | null): 
 
 export const buildInteractiveSvgMarkup = (
   rawSvgMarkup: string,
-  selectedRegions: Record<string, number>,
+  isRegionSelected: (svgId: string) => boolean,
 ): string => {
   if (!rawSvgMarkup.trim()) {
     return '';
@@ -56,23 +49,18 @@ export const buildInteractiveSvgMarkup = (
     }
 
     const code = regionId.slice(PAIN_ID_PREFIX.length);
-    const intensity = selectedRegions[code] || 0;
 
     regionElement.classList.add('pain-map-region');
     regionElement.setAttribute('role', 'button');
     regionElement.setAttribute('tabindex', '0');
+    regionElement.setAttribute('fill', 'rgba(0,0,0,0.001)');
+    regionElement.setAttribute('pointer-events', 'all');
 
-    if (intensity > 0) {
-      const opacity = clampOpacity(intensity).toFixed(2);
+    if (isRegionSelected(regionId) || isRegionSelected(code)) {
       regionElement.classList.add('pain-map-region--selected');
-      regionElement.setAttribute('data-intensity', String(intensity));
       regionElement.setAttribute('aria-pressed', 'true');
-
-      const baseStyle = regionElement.getAttribute('style')?.trim();
-      const nextStyle = `${baseStyle ? `${baseStyle}; ` : ''}--pain-fill-opacity:${opacity};`;
-      regionElement.setAttribute('style', nextStyle);
     } else {
-      regionElement.removeAttribute('aria-pressed');
+      regionElement.setAttribute('aria-pressed', 'false');
     }
   });
 
