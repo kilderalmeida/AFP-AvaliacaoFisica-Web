@@ -74,7 +74,7 @@
     font-size: 11px !important;
   }
 
-  /* Last activity refinements */
+  /* Last activity section */
   .dashboard-last-activity-section {
     padding: 14px !important;
   }
@@ -90,6 +90,43 @@
 
   .dashboard-activity-value {
     font-size: 14px !important;
+  }
+
+  /* Recent session card */
+  .dashboard-recent-session-card {
+    padding: 12px !important;
+    gap: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .dashboard-recent-title {
+    font-size: 18px !important;
+  }
+
+  .dashboard-recent-chips {
+    gap: 6px !important;
+  }
+
+  .dashboard-recent-grid {
+    gap: 8px !important;
+  }
+
+  .dashboard-mini-label {
+    display: block;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.18;
+  }
+
+  .dashboard-mini-label .dashboard-label-short {
+    display: none;
+  }
+
+  .dashboard-recent-cell {
+    min-height: 64px;
+    height: 100%;
   }
 
   /* Stats section refinements */
@@ -291,5 +328,53 @@
 
   .dashboard-session-activity {
     font-size: 12px !important;
+  }
+
+  /* Recent session card — extra compact on 480px */
+  .dashboard-recent-session-card {
+    padding: 10px !important;
+    gap: 10px !important;
+    border-radius: 10px !important;
+  }
+
+  .dashboard-recent-title {
+    font-size: 16px !important;
+  }
+
+  .dashboard-recent-grid {
+    gap: 6px !important;
+  }
+
+  .dashboard-mini-label {
+    line-height: 1.15;
+  }
+
+  .dashboard-recent-cell {
+    min-height: 58px;
+    height: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .dashboard-recent-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .dashboard-recent-cell {
+    min-height: 0;
+  }
+
+  .dashboard-mini-label {
+    font-size: 9px !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  .dashboard-mini-label .dashboard-label-full {
+    display: none;
+  }
+
+  .dashboard-mini-label .dashboard-label-short {
+    display: inline;
   }
 }

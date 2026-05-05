@@ -103,6 +103,56 @@ function sortSessionsByDateDesc(sessions) {
   });
 }
 
+function hasRecordedWellBeing(bemEstar) {
+  if (!bemEstar || typeof bemEstar !== 'object') return false;
+
+  return ['fadiga', 'sono', 'dor', 'estresse', 'humor'].some(
+    (key) => Number(bemEstar?.[key]) > 0
+  );
+}
+
+function hasCoachRelevantData(session) {
+  if (!session) return false;
+
+  return (
+    Number(session.hidratacao) > 0 ||
+    (Array.isArray(session.dorRegioes) && session.dorRegioes.length > 0) ||
+    Number(session.vfc) > 0 ||
+    (typeof session.recuperacao === 'string' && session.recuperacao.trim().length > 0) ||
+    hasRecordedWellBeing(session.bemEstar) ||
+    session.pseFoster === 0 ||
+    Number.isFinite(Number(session.pseFoster)) ||
+    Number(session.duracaoMin) > 0 ||
+    Number(session.carga) > 0
+  );
+}
+
+function buildLatestSessionCardData(allSessions) {
+  const latestSession = allSessions[0] || null;
+
+  if (!latestSession) {
+    return null;
+  }
+
+  const fallbackSession = allSessions.find(
+    (session, index) => index > 0 && hasCoachRelevantData(session)
+  );
+  const sourceSession = hasCoachRelevantData(latestSession)
+    ? latestSession
+    : fallbackSession || latestSession;
+  const usesFallback = sourceSession?.id !== latestSession.id;
+
+  return {
+    session: latestSession,
+    sourceSession,
+    sourceType: usesFallback ? 'fallback' : 'current',
+    sourceLabel: usesFallback ? 'últimos dados registrados' : 'dados da atividade atual',
+    inheritedNotice: usesFallback
+      ? 'Sem check-in/check-out suficiente na atividade atual. Exibindo o último registro válido do atleta.'
+      : '',
+  };
+}
+
 function normalizeUserRole(userData) {
   return String(userData?.papel || '')
     .normalize('NFC')
@@ -527,7 +577,14 @@ export async function getAthleteSessionsByPeriod(athleteUid, days = 7) {
  */
 export async function getDashboardStatsByPeriod(uid, days = 7) {
   try {
-    const sessions = await getAthleteSessionsByPeriod(uid, days);
+    const allSessions = await getAthleteSessions(uid);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const sessions = allSessions.filter((session) => {
+      const sessionDate = toDateObject(session.dataCheckout || session.dataCheckin);
+      return sessionDate && sessionDate >= cutoffDate;
+    });
     const totalMinutes = sessions.reduce((acc, item) => acc + Number(item.duracaoMin || 0), 0);
 
     // Calcula distribuição de modalidades
@@ -540,8 +597,9 @@ export async function getDashboardStatsByPeriod(uid, days = 7) {
       }
     });
 
-    // Encontra última sessão
-    const lastSession = sessions[0] || null;
+    // Encontra a sessão mais recente do atleta, mesmo fora do período filtrado.
+    const latestSessionCard = buildLatestSessionCardData(allSessions);
+    const lastSession = latestSessionCard?.session || null;
 
     return {
       totalSessions: sessions.length,
@@ -550,6 +608,7 @@ export async function getDashboardStatsByPeriod(uid, days = 7) {
       recentActivities: sessions,
       activitiesDistribution: activitiesMap,
       lastSession,
+      latestSessionCard,
       period: days,
     };
   } catch (error) {
@@ -561,6 +620,7 @@ export async function getDashboardStatsByPeriod(uid, days = 7) {
       recentActivities: [],
       activitiesDistribution: {},
       lastSession: null,
+      latestSessionCard: null,
       period: days,
     };
   }

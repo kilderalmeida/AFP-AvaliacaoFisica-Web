@@ -68,6 +68,12 @@ const REGION_MAP: PainRegion[] = [
 export const getRegionBySvgId = (svgId: string): PainRegion | undefined =>
   REGION_MAP.find((region) => region.svgId === svgId);
 
+/** Busca região pelo code. Usado para retrocompatibilidade com dados legados. */
+export const getRegionByCode = (code: string): PainRegion | undefined =>
+  REGION_MAP.find((region) => region.code === code);
+
+export { REGION_MAP };
+
 /**
  * Monta a lista de regiões selecionadas para o payload final.
  * Retorna apenas code + name, sem intensidade.

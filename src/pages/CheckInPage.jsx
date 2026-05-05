@@ -77,7 +77,7 @@ export default function CheckInPage() {
     // Mantem o estado global do wizard alinhado com o novo mapa de dor.
     setForm((prev) => ({
       ...prev,
-      dorRegioes: selectedRegionDetails.map((region) => region.code),
+      dorRegioes: selectedRegionDetails,
     }));
   }, [selectedRegionDetails]);
 
@@ -387,35 +387,73 @@ export default function CheckInPage() {
       case 6:
         return (
           <div>
-            <p style={{ marginTop: 0, marginBottom: '1.5rem', color: '#555', fontSize: '1rem' }}>Escolha seu nível de hidratação:</p>
-            <div className="checkin-scale-row" style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`checkin-chip ${form.hidratacao === value ? 'selected' : ''}`}
-                  style={{
-                    width: '44px',
-                    height: '44px',
-                    padding: 0,
-                    fontSize: '0.95rem',
-                    borderRadius: '6px',
-                    border: form.hidratacao === value ? '2px solid #1565c0' : '1px solid #ccc',
-                    background: form.hidratacao === value ? '#1565c0' : '#fff',
-                    color: form.hidratacao === value ? '#fff' : '#555',
-                    cursor: 'pointer',
-                    fontWeight: form.hidratacao === value ? 600 : 400,
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                  onClick={() => setForm((prev) => ({ ...prev, hidratacao: value }))}
-                >
-                  {value}
-                </button>
-              ))}
+            <p style={{ marginTop: 0, marginBottom: '0.4rem', color: '#555', fontSize: '1rem', fontWeight: 600 }}>
+              Qual é a cor da sua urina hoje?
+            </p>
+            <p style={{ marginTop: 0, marginBottom: '1.5rem', color: '#888', fontSize: '0.85rem' }}>
+              A cor indica seu nível de hidratação. Escolha a opção mais próxima.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {(() => {
+                const HYDRATION_COLORS = [
+                  { bg: '#fdf8d4', text: '#555', label: 'Muito clara' },
+                  { bg: '#f7e87a', text: '#555', label: 'Clara' },
+                  { bg: '#f0d644', text: '#444', label: 'Amarelo claro' },
+                  { bg: '#e8c20e', text: '#333', label: 'Amarelo moderado' },
+                  { bg: '#d4950a', text: '#fff', label: 'Amarelo forte' },
+                  { bg: '#b87008', text: '#fff', label: 'Amarelo escuro' },
+                  { bg: '#8b5000', text: '#fff', label: 'Âmbar' },
+                  { bg: '#5a2d00', text: '#fff', label: 'Muito escura' },
+                ];
+                return [1, 2, 3, 4, 5, 6, 7, 8].map((val) => {
+                  const c = HYDRATION_COLORS[val - 1];
+                  const isSel = form.hidratacao === val;
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      aria-pressed={isSel}
+                      aria-label={`Nível ${val}: ${c.label}`}
+                      style={{
+                        width: '48px',
+                        height: '56px',
+                        padding: 0,
+                        fontSize: '0.95rem',
+                        borderRadius: '8px',
+                        border: isSel ? '3px solid #1565c0' : '2px solid rgba(0,0,0,0.08)',
+                        background: c.bg,
+                        color: c.text,
+                        cursor: 'pointer',
+                        fontWeight: isSel ? 700 : 500,
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: isSel ? '0 0 0 3px rgba(21,101,192,0.25)' : '0 1px 3px rgba(0,0,0,0.12)',
+                        transform: isSel ? 'scale(1.1)' : 'scale(1)',
+                      }}
+                      onClick={() => setForm((prev) => ({ ...prev, hidratacao: val }))}
+                    >
+                      {val}
+                    </button>
+                  );
+                });
+              })()}
             </div>
+            {(() => {
+              const hv = form.hidratacao;
+              const HYDRATION_LABELS = ['Muito clara','Clara','Amarelo claro','Amarelo moderado','Amarelo forte','Amarelo escuro','Âmbar','Muito escura'];
+              const interp =
+                hv <= 2 ? { text: 'Bem hidratado', color: '#2e7d32' } :
+                hv <= 4 ? { text: 'Adequado', color: '#1565c0' } :
+                hv <= 6 ? { text: 'Atenção à hidratação', color: '#e65100' } :
+                          { text: 'Possível desidratação', color: '#c62828' };
+              return hv ? (
+                <p style={{ marginTop: '1.25rem', fontSize: '0.95rem', fontWeight: 600, color: interp.color, textAlign: 'center' }}>
+                  {HYDRATION_LABELS[hv - 1]} — {interp.text}
+                </p>
+              ) : null;
+            })()}
           </div>
         );
       default:
@@ -465,13 +503,13 @@ export default function CheckInPage() {
 
               {error && <div className="error-message" style={{ padding: '1.25rem', background: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)', border: '1px solid #e57373', borderRadius: '8px', color: '#c62828', marginBottom: '2rem', fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>{error}</div>}
 
-              <div className="checkin-actions" style={{ display: 'flex', gap: '1.25rem', marginTop: '2.5rem' }}>
+              <div className="checkin-actions step-nav-actions" style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', width: '100%' }}>
                 <button
                   type="button"
                   onClick={handlePrevious}
                   disabled={step === 1 || loading}
-                  className="secondary-button"
-                  style={{ flex: 1, padding: '1rem 2rem', fontSize: '1.1rem', border: '2px solid #e0e0e0', background: '#fff', borderRadius: '8px', cursor: step === 1 || loading ? 'not-allowed' : 'pointer', opacity: step === 1 || loading ? 0.5 : 1, transition: 'all 0.3s ease', fontWeight: 600, color: '#616161' }}
+                  className="secondary-button step-nav-button step-nav-secondary"
+                  style={{ flex: '1 1 0', minWidth: 0, width: '100%', padding: '0.875rem 1rem', fontSize: '1rem', border: '2px solid #e0e0e0', background: '#fff', borderRadius: '8px', cursor: step === 1 || loading ? 'not-allowed' : 'pointer', opacity: step === 1 || loading ? 0.5 : 1, transition: 'all 0.3s ease', fontWeight: 600, color: '#616161', minHeight: '44px' }}
                 >
                   ← Anterior
                 </button>
@@ -480,8 +518,8 @@ export default function CheckInPage() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={loading || success}
-                    className="checkin-button"
-                    style={{ flex: 1, padding: '1rem 2rem', fontSize: '1.1rem', background: loading || success ? '#ccc' : 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)', color: '#fff', border: 'none', borderRadius: '8px', cursor: loading || success ? 'not-allowed' : 'pointer', fontWeight: 700, transition: 'all 0.3s ease', boxShadow: loading || success ? 'none' : '0 4px 15px rgba(76,175,80,0.3)' }}
+                    className="checkin-button step-nav-button step-nav-primary"
+                    style={{ flex: '1 1 0', minWidth: 0, width: '100%', padding: '0.875rem 1rem', fontSize: '1rem', background: loading || success ? '#ccc' : 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)', color: '#fff', border: 'none', borderRadius: '8px', cursor: loading || success ? 'not-allowed' : 'pointer', fontWeight: 700, transition: 'all 0.3s ease', boxShadow: loading || success ? 'none' : '0 4px 15px rgba(76,175,80,0.3)', minHeight: '44px' }}
                   >
                     {loading ? '⏳ Registrando...' : success ? '✅ Registrado!' : 'Finalizar Check-in →'}
                   </button>
@@ -490,8 +528,8 @@ export default function CheckInPage() {
                     type="button"
                     onClick={handleNext}
                     disabled={loading}
-                    className="checkin-button"
-                    style={{ flex: 1, padding: '1rem 2rem', fontSize: '1.1rem', background: loading ? '#ccc' : 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)', color: '#fff', border: 'none', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 700, transition: 'all 0.3s ease', boxShadow: loading ? 'none' : '0 4px 15px rgba(25,118,210,0.3)' }}
+                    className="checkin-button step-nav-button step-nav-primary"
+                    style={{ flex: '1 1 0', minWidth: 0, width: '100%', padding: '0.875rem 1rem', fontSize: '1rem', background: loading ? '#ccc' : 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)', color: '#fff', border: 'none', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 700, transition: 'all 0.3s ease', boxShadow: loading ? 'none' : '0 4px 15px rgba(25,118,210,0.3)', minHeight: '44px' }}
                   >
                     Próximo →
                   </button>

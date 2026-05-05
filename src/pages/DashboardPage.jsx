@@ -19,7 +19,9 @@ import {
   getAthletesByTrainer,
   getTrainersByCoach,
   formatDateTimeForDisplay,
+  calculateDurationForDisplay,
 } from '../services/sessionService.js';
+import { getRegionByCode } from '../components/pain-map/usePainRegions';
 
 const PROFILE_TYPES = {
   COACH: 'coach',
@@ -37,6 +39,183 @@ function normalizeProfileType(profileData) {
     .normalize('NFC')
     .trim()
     .toLowerCase();
+}
+
+const HYDRATION_SCALE = [
+  'Muito clara',
+  'Clara',
+  'Amarelo claro',
+  'Amarelo moderado',
+  'Amarelo forte',
+  'Amarelo escuro',
+  'Âmbar',
+  'Muito escura',
+];
+
+const PSE_SCALE = [
+  'Repouso',
+  'Muito leve',
+  'Muito leve',
+  'Leve',
+  'Leve',
+  'Moderado',
+  'Moderado',
+  'Intenso',
+  'Intenso',
+  'Muito intenso',
+  'Máximo esforço',
+];
+
+function getPrimaryActivityLabel(session) {
+  const activities = Array.isArray(session?.atividades) ? session.atividades.filter(Boolean) : [];
+  if (activities.length === 0) return 'Sessão de treino';
+  return activities.join(' • ');
+}
+
+function getSessionStatusMeta(session) {
+  const isOpen = !session?.dataCheckout;
+  return {
+    label: isOpen ? 'Aberta' : 'Finalizada',
+    tone: isOpen ? 'open' : 'closed',
+  };
+}
+
+function getDurationLabel(session) {
+  if (!session?.dataCheckin) return 'N/D';
+
+  if (Number(session?.duracaoMin) > 0) {
+    return `${Number(session.duracaoMin)} min`;
+  }
+
+  const elapsed = calculateDurationForDisplay(session.dataCheckin, session.dataCheckout || new Date());
+  if (elapsed > 0) {
+    return `${elapsed} min`;
+  }
+
+  return session?.dataCheckout ? 'N/D' : 'Em andamento';
+}
+
+function getHydrationMeta(level) {
+  const hydration = Number(level);
+
+  if (!hydration || hydration < 1 || hydration > 8) {
+    return {
+      label: 'Sem registro',
+      helper: 'Nenhum dado recente de hidratação.',
+      color: '#6b7280',
+      accent: '#e5e7eb',
+    };
+  }
+
+  if (hydration <= 2) {
+    return {
+      label: HYDRATION_SCALE[hydration - 1],
+      helper: 'Bem hidratado',
+      color: '#166534',
+      accent: '#dcfce7',
+    };
+  }
+
+  if (hydration <= 4) {
+    return {
+      label: HYDRATION_SCALE[hydration - 1],
+      helper: 'Hidratação adequada',
+      color: '#1d4ed8',
+      accent: '#dbeafe',
+    };
+  }
+
+  if (hydration <= 6) {
+    return {
+      label: HYDRATION_SCALE[hydration - 1],
+      helper: 'Atenção à hidratação',
+      color: '#b45309',
+      accent: '#fef3c7',
+    };
+  }
+
+  return {
+    label: HYDRATION_SCALE[hydration - 1],
+    helper: 'Possível desidratação',
+    color: '#b91c1c',
+    accent: '#fee2e2',
+  };
+}
+
+function getPseMeta(value, isOpenSession) {
+  if (value === null || value === undefined || value === '') {
+    return {
+      label: isOpenSession ? 'Check-out pendente' : 'Sem registro',
+      helper: isOpenSession ? 'O PSE aparece após o check-out.' : 'Nenhum PSE disponível.',
+      color: '#6b7280',
+      accent: '#f3f4f6',
+    };
+  }
+
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 0 || numericValue > 10) {
+    return {
+      label: 'Sem registro',
+      helper: 'Nenhum PSE disponível.',
+      color: '#6b7280',
+      accent: '#f3f4f6',
+    };
+  }
+
+  return {
+    label: `${numericValue} • ${PSE_SCALE[numericValue]}`,
+    helper: 'Escala de percepção subjetiva de esforço.',
+    color: numericValue >= 7 ? '#b91c1c' : numericValue >= 5 ? '#c2410c' : '#166534',
+    accent: numericValue >= 7 ? '#fee2e2' : numericValue >= 5 ? '#ffedd5' : '#dcfce7',
+  };
+}
+
+function resolvePainRegionName(region) {
+  if (!region) return '';
+  if (typeof region === 'string') return getRegionByCode(region)?.name || region;
+  if (typeof region?.name === 'string' && region.name.trim()) return region.name;
+  if (typeof region?.code === 'string') return getRegionByCode(region.code)?.name || region.code;
+  return '';
+}
+
+function getPainSummary(regions) {
+  const names = Array.isArray(regions)
+    ? [...new Set(regions.map(resolvePainRegionName).filter(Boolean))]
+    : [];
+
+  if (names.length === 0) {
+    return {
+      label: 'Sem dor registrada',
+      helper: 'Nenhuma região de dor informada.',
+    };
+  }
+
+  return {
+    label: names.join(', '),
+    helper: `${names.length} região${names.length > 1 ? 'ões' : ''} registrada${names.length > 1 ? 's' : ''}.`,
+  };
+}
+
+function getWellBeingSummary(bemEstar) {
+  if (!bemEstar || typeof bemEstar !== 'object') return null;
+
+  const entries = [
+    ['Sono', Number(bemEstar.sono) || 0],
+    ['Humor', Number(bemEstar.humor) || 0],
+    ['Fadiga', Number(bemEstar.fadiga) || 0],
+    ['Dor', Number(bemEstar.dor) || 0],
+    ['Estresse', Number(bemEstar.estresse) || 0],
+  ].filter(([, value]) => value > 0);
+
+  if (entries.length === 0) return null;
+
+  const average = entries.reduce((sum, [, value]) => sum + value, 0) / entries.length;
+  const details = entries.slice(0, 3).map(([label, value]) => `${label} ${value}`).join(' • ');
+
+  return {
+    label: `${average.toFixed(1)}/5`,
+    helper: details,
+  };
 }
 
 export default function DashboardPage() {
@@ -313,6 +492,36 @@ export default function DashboardPage() {
   }
 
   const displayName = profile?.nome || userInfo?.displayName || 'Usuário';
+  const latestSessionCard = stats?.latestSessionCard || null;
+  const latestSession = latestSessionCard?.session || null;
+  const sourceSession = latestSessionCard?.sourceSession || latestSession;
+  const latestStatus = getSessionStatusMeta(latestSession);
+  const hydrationMeta = getHydrationMeta(sourceSession?.hidratacao);
+  const painSummary = getPainSummary(sourceSession?.dorRegioes);
+  const pseMeta = getPseMeta(sourceSession?.pseFoster, latestStatus.tone === 'open');
+  const wellBeingSummary = getWellBeingSummary(sourceSession?.bemEstar);
+  const sourceReferenceDate = latestSessionCard?.sourceType === 'fallback'
+    ? formatDateTimeForDisplay(sourceSession?.dataCheckout || sourceSession?.dataCheckin)
+    : null;
+  const observationParts = [];
+
+  if (latestSessionCard?.inheritedNotice) {
+    observationParts.push(latestSessionCard.inheritedNotice);
+  }
+
+  if (typeof sourceSession?.recuperacao === 'string' && sourceSession.recuperacao.trim()) {
+    observationParts.push(`Recuperação: ${sourceSession.recuperacao.trim()}`);
+  }
+
+  if (Number(sourceSession?.carga) > 0) {
+    observationParts.push(`Carga: ${Number(sourceSession.carga)}`);
+  }
+
+  if (wellBeingSummary) {
+    observationParts.push(`Bem-estar: ${wellBeingSummary.label}`);
+  }
+
+  const compactObservation = observationParts.join(' • ');
 
   return (
     <div style={styles.page}>
@@ -360,32 +569,88 @@ export default function DashboardPage() {
         {/* Filters */}
         {renderFilters()}
 
-        {/* Last Activity */}
-        {stats?.lastSession && (
+        {/* Latest Session */}
+        {latestSession && (
           <section style={styles.lastActivitySection} className="dashboard-last-activity-section">
             <div style={styles.sectionHeader} className="dashboard-section-header">
-              <h2 style={styles.sectionTitle} className="dashboard-section-title">Última atividade</h2>
+              <h2 style={styles.sectionTitle} className="dashboard-section-title">Última sessão e sinais do atleta</h2>
             </div>
-            <div style={styles.lastActivityContent} className="dashboard-last-activity-content">
-              <div>
-                <span style={styles.activityLabel} className="dashboard-activity-label">Atividade</span>
-                <p style={styles.activityValue} className="dashboard-activity-value">
-                  {stats.lastSession.atividades?.[0] || 'Sessão de treino'}
-                </p>
+            <article style={styles.recentSessionCard} className="dashboard-recent-session-card">
+              <div style={styles.compactHeader} className="dashboard-recent-header">
+                <div style={styles.compactHeaderCopy}>
+                  <p style={styles.recentSessionEyebrow}>Sessão mais recente</p>
+                  <h3 style={styles.recentSessionName} className="dashboard-recent-title">{getPrimaryActivityLabel(latestSession)}</h3>
+                </div>
+                <div style={styles.compactChipWrap} className="dashboard-recent-chips">
+                  <span
+                    style={{
+                      ...styles.statusBadge,
+                      ...(latestStatus.tone === 'open' ? styles.statusBadgeOpen : styles.statusBadgeClosed),
+                    }}
+                  >
+                    {latestStatus.label}
+                  </span>
+                  <span
+                    style={{
+                      ...styles.sourceBadge,
+                      ...(latestSessionCard?.sourceType === 'fallback'
+                        ? styles.sourceBadgeFallback
+                        : styles.sourceBadgeCurrent),
+                    }}
+                  >
+                    {latestSessionCard?.sourceLabel || 'dados da atividade atual'}
+                  </span>
+                  {sourceReferenceDate && (
+                    <span style={styles.referenceBadge}>Base em {sourceReferenceDate}</span>
+                  )}
+                </div>
               </div>
-              <div>
-                <span style={styles.activityLabel} className="dashboard-activity-label">Data</span>
-                <p style={styles.activityValue} className="dashboard-activity-value">
-                  {formatDateTimeForDisplay(stats.lastSession.dataCheckin)}
-                </p>
+
+              <div style={styles.compactQuickGrid} className="dashboard-recent-grid">
+                <div style={styles.quickSignalCard} className="dashboard-recent-cell">
+                  <span style={styles.signalLabel}>Data/hora</span>
+                  <strong style={styles.compactSignalValue}>{formatDateTimeForDisplay(latestSession.dataCheckin)}</strong>
+                </div>
+
+                <div style={styles.quickSignalCard} className="dashboard-recent-cell">
+                  <span style={styles.signalLabel}>Duração</span>
+                  <strong style={styles.compactSignalValue}>{getDurationLabel(latestSession)}</strong>
+                </div>
+
+                <div style={{ ...styles.quickSignalCard, background: hydrationMeta.accent }} className="dashboard-recent-cell">
+                  <span style={styles.signalLabel}>Hidratação</span>
+                  <strong style={{ ...styles.compactSignalValue, color: hydrationMeta.color }}>{hydrationMeta.label}</strong>
+                  <p style={styles.compactSignalHelper}>{hydrationMeta.helper}</p>
+                </div>
+
+                <div style={{ ...styles.quickSignalCard, background: pseMeta.accent }} className="dashboard-recent-cell">
+                  <span style={styles.signalLabel} className="dashboard-mini-label">
+                    <span className="dashboard-label-full">PSE / Check-out</span>
+                    <span className="dashboard-label-short">PSE</span>
+                  </span>
+                  <strong style={{ ...styles.compactSignalValue, color: pseMeta.color }}>{pseMeta.label}</strong>
+                  <p style={styles.compactSignalHelper}>{pseMeta.helper}</p>
+                </div>
               </div>
-              <div>
-                <span style={styles.activityLabel} className="dashboard-activity-label">Duração</span>
-                <p style={styles.activityValue} className="dashboard-activity-value">
-                  {stats.lastSession.duracaoMin ? `${stats.lastSession.duracaoMin}m` : 'N/D'}
+
+              <div style={styles.compactLineList}>
+                <p style={styles.compactLineText}><strong>Dor:</strong> {painSummary.label}</p>
+                <p style={styles.compactLineText}>
+                  <strong>VFC:</strong> {Number(sourceSession?.vfc) > 0 ? Number(sourceSession.vfc) : 'sem registro'}
                 </p>
+                {compactObservation && (
+                  <p style={styles.compactLineNote}>
+                    <strong>Observações:</strong> {compactObservation}
+                  </p>
+                )}
+                {!compactObservation && latestSessionCard?.sourceType === 'fallback' && (
+                  <p style={styles.compactLineNote}>Dados herdados do último registro válido.</p>
+                )}
+                {!compactObservation && latestSessionCard?.sourceType !== 'fallback' && (
+                  <p style={styles.compactLineMuted}>{painSummary.helper}</p>
+                )}
               </div>
-            </div>
+            </article>
           </section>
         )}
 
@@ -546,24 +811,143 @@ const styles = {
     fontSize: '18px',
     fontWeight: 600,
   },
-  lastActivityContent: {
+  recentSessionCard: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-    gap: '16px',
+    gap: '10px',
+    padding: '12px',
+    borderRadius: '12px',
+    background: 'linear-gradient(180deg, #f8fbff 0%, #ffffff 100%)',
+    border: '1px solid #dbeafe',
   },
-  activityLabel: {
-    display: 'block',
-    fontSize: '12px',
-    color: '#6b7280',
+  compactHeader: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  compactHeaderCopy: {
+    display: 'grid',
+    gap: '2px',
+  },
+  recentSessionEyebrow: {
+    margin: 0,
+    fontSize: '10px',
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: '#64748b',
+  },
+  recentSessionName: {
+    margin: 0,
+    fontSize: '20px',
+    lineHeight: 1.2,
+    color: '#0f172a',
+  },
+  compactChipWrap: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
+  },
+  statusBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 'fit-content',
+    padding: '4px 8px',
+    borderRadius: '999px',
+    fontSize: '11px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+  statusBadgeOpen: {
+    background: '#dbeafe',
+    color: '#1d4ed8',
+  },
+  statusBadgeClosed: {
+    background: '#dcfce7',
+    color: '#166534',
+  },
+  sourceBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    width: 'fit-content',
+    padding: '4px 8px',
+    borderRadius: '999px',
+    fontSize: '11px',
+    fontWeight: 600,
+  },
+  sourceBadgeCurrent: {
+    background: '#e0f2fe',
+    color: '#0369a1',
+  },
+  sourceBadgeFallback: {
+    background: '#fef3c7',
+    color: '#b45309',
+  },
+  referenceBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    width: 'fit-content',
+    padding: '4px 8px',
+    borderRadius: '999px',
+    fontSize: '11px',
+    fontWeight: 500,
+    color: '#475569',
+    background: '#f1f5f9',
+  },
+  compactQuickGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: '8px',
+  },
+  quickSignalCard: {
+    display: 'grid',
+    gap: '3px',
+    padding: '8px 9px',
+    borderRadius: '8px',
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+  },
+  signalLabel: {
+    fontSize: '10px',
+    fontWeight: 700,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
-    marginBottom: '4px',
+    color: '#64748b',
   },
-  activityValue: {
-    fontSize: '16px',
-    fontWeight: 600,
-    color: '#1f2937',
+  compactSignalValue: {
+    fontSize: '13px',
+    lineHeight: 1.3,
+    color: '#111827',
+  },
+  compactSignalHelper: {
     margin: 0,
+    fontSize: '11px',
+    color: '#475569',
+    lineHeight: 1.35,
+  },
+  compactLineList: {
+    display: 'grid',
+    gap: '4px',
+    paddingTop: '2px',
+  },
+  compactLineText: {
+    margin: 0,
+    fontSize: '12px',
+    lineHeight: 1.35,
+    color: '#334155',
+  },
+  compactLineNote: {
+    margin: 0,
+    fontSize: '12px',
+    lineHeight: 1.35,
+    color: '#92400e',
+  },
+  compactLineMuted: {
+    margin: 0,
+    fontSize: '11px',
+    color: '#64748b',
+    lineHeight: 1.35,
   },
   statsSection: {
     background: '#ffffff',
