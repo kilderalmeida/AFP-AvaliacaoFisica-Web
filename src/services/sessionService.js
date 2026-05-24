@@ -1,11 +1,7 @@
 /**
  * sessionService.js
- * Service centralizado para operações de sessão de treino.
  *
- * Objetivo:
- * - Encapsular toda a lógica de leitura/escrita no Firestore
- * - Concentrar regras de negócio de check-in, check-out e dashboard
- * - Evitar duplicação de queries e helpers nas páginas
+ * Fluxo canônico de treino baseado apenas em `activities`.
  */
 
 import {
@@ -14,39 +10,72 @@ import {
   getDoc,
   getDocs,
   query,
+  setDoc,
   where,
-  addDoc,
-  updateDoc,
-  serverTimestamp,
+  orderBy,
 } from 'firebase/firestore';
-import { db } from './firebase/config.js';
+import { auth, db } from './firebase/config.js';
+import { getTrainerDashboardStatsFromBackend } from './trainer-dashboard-backend.service.js';
+import { getAthleteDashboardStatsFromBackend } from './athlete-dashboard-backend.service.js';
 
-/**
- * Converte diferentes formatos de data para Date.
- *
- * Casos tratados:
- * - Firestore Timestamp (com toDate)
- * - Objeto com seconds
- * - Date nativo
- * - String/valor compatível com new Date()
- *
- * Retorna null se não conseguir interpretar a data.
- */
+async function ensureOwnUserProfileIfMissing(uid) {
+  const authUser = auth.currentUser;
+  if (!authUser || authUser.uid !== uid) return false;
+
+  const now = new Date();
+  const email = String(authUser.email || '');
+  const fallbackName = email.includes('@') ? email.split('@')[0] : 'Usuario';
+
+  const profilePayload = {
+    uid,
+    displayName: String(authUser.displayName || fallbackName),
+    email,
+    phoneNumber: String(authUser.phoneNumber || ''),
+    photoURL: String(authUser.photoURL || ''),
+    userTypes: [],
+    status: 'pending',
+    isProfileComplete: false,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: uid,
+    updatedBy: uid,
+    schemaVersion: 2,
+  };
+
+  await setDoc(doc(db, 'users', uid), profilePayload, { merge: false });
+  return true;
+}
+
 function toDateObject(value) {
   if (!value) return null;
   if (typeof value?.toDate === 'function') return value.toDate();
-  if (value?.seconds) return new Date(value.seconds * 1000);
+  // Cloud Functions serialize Timestamps as { _seconds, _nanoseconds }; Firestore SDK uses { seconds }
+  const seconds = value?.seconds ?? value?._seconds;
+  if (seconds) return new Date(seconds * 1000);
 
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/**
- * Formata uma data para exibição em pt-BR.
- *
- * Esse helper é usado para padronizar a UI e evitar
- * lógica de formatação espalhada pelos componentes.
- */
+function getPeriodReferenceDate(session) {
+  return toDateObject(session?.activityDate || session?.dataCheckin || session?.dataCheckout);
+}
+
+function getPeriodCutoffStart(days = 7) {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - Number(days || 0));
+  cutoffDate.setHours(0, 0, 0, 0);
+  return cutoffDate;
+}
+
+function getSessionDistributionBucket(session) {
+  const primary = Array.isArray(session?.atividades) ? String(session.atividades[0] || '').trim() : '';
+  if (primary) return primary;
+
+  const fallback = Array.isArray(session?.atividades) ? String(session.atividades[1] || '').trim() : '';
+  return fallback || 'Sem categoria';
+}
+
 function formatDateTimePtBR(value) {
   const date = toDateObject(value);
   if (!date) return 'N/D';
@@ -60,12 +89,6 @@ function formatDateTimePtBR(value) {
   }).format(date);
 }
 
-/**
- * Calcula a duração entre duas datas em minutos.
- *
- * Usa arredondamento para manter o comportamento simples na UI.
- * Nunca retorna valor negativo.
- */
 function calculateDurationMinutes(startValue, endValue = new Date()) {
   const startDate = toDateObject(startValue);
   const endDate = toDateObject(endValue);
@@ -76,29 +99,45 @@ function calculateDurationMinutes(startValue, endValue = new Date()) {
   return Math.max(0, Math.round(diffMs / 60000));
 }
 
-/**
- * Converte minutos acumulados em rótulo de horas.
- *
- * Exemplos:
- * - 60 -> 1h
- * - 90 -> 1.5h
- * - 120 -> 2h
- */
 function formatHoursFromMinutes(minutes = 0) {
   const hours = minutes / 60;
   return `${hours.toFixed(hours % 1 === 0 ? 0 : 1)}h`;
 }
 
-/**
- * Ordena sessões da mais recente para a mais antiga.
- *
- * Prioriza dataCheckout quando existir; caso contrário,
- * usa dataCheckin como referência de ordenação.
- */
+function normalizeActivityAsSession(docSnap) {
+  const data = docSnap.data();
+  const checkinAt = data?.checkin?.createdAt || data?.activityDate || data?.createdAt || null;
+  const checkoutAt = data?.checkout?.createdAt || null;
+  const durationMinutes = Number(data?.durationMinutes) > 0
+    ? Number(data.durationMinutes)
+    : checkoutAt
+      ? calculateDurationMinutes(checkinAt, checkoutAt)
+      : 0;
+  const pse = Number.isFinite(Number(data?.checkout?.pse)) ? Number(data.checkout.pse) : null;
+
+  return {
+    id: docSnap.id,
+    athleteId: data?.athleteUserId || '',
+    activityDate: data?.activityDate || data?.createdAt || null,
+    atividades: [data?.activityType, data?.modality].filter(Boolean),
+    vfc: Number(data?.checkin?.hrv) || 0,
+    bemEstar: data?.checkin?.wellBeing || {},
+    recuperacao: data?.checkout?.recovery || '',
+    dorRegioes: Array.isArray(data?.checkin?.painRegions) ? data.checkin.painRegions : [],
+    hidratacao: Number(data?.checkin?.hydration) || 0,
+    dataCheckin: checkinAt,
+    dataCheckout: data?.status === 'open' ? null : checkoutAt,
+    pseFoster: pse,
+    duracaoMin: durationMinutes,
+    carga: pse !== null && durationMinutes > 0 ? pse * durationMinutes : 0,
+    status: data?.status || (checkoutAt ? 'completed' : 'open'),
+  };
+}
+
 function sortSessionsByDateDesc(sessions) {
   return sessions.sort((a, b) => {
-    const timeA = toDateObject(a.dataCheckout || a.dataCheckin)?.getTime() || 0;
-    const timeB = toDateObject(b.dataCheckout || b.dataCheckin)?.getTime() || 0;
+    const timeA = toDateObject(a.dataCheckout || a.dataCheckin || a.activityDate)?.getTime() || 0;
+    const timeB = toDateObject(b.dataCheckout || b.dataCheckin || b.activityDate)?.getTime() || 0;
     return timeB - timeA;
   });
 }
@@ -106,7 +145,7 @@ function sortSessionsByDateDesc(sessions) {
 function hasRecordedWellBeing(bemEstar) {
   if (!bemEstar || typeof bemEstar !== 'object') return false;
 
-  return ['fadiga', 'sono', 'dor', 'estresse', 'humor'].some(
+  return ['sleep', 'mood', 'fatigue', 'pain', 'stress'].some(
     (key) => Number(bemEstar?.[key]) > 0
   );
 }
@@ -153,35 +192,75 @@ function buildLatestSessionCardData(allSessions) {
   };
 }
 
-function normalizeUserRole(userData) {
-  return String(userData?.papel || '')
-    .normalize('NFC')
-    .trim()
-    .toLowerCase();
+function normalizeRoleToken(value) {
+  const token = String(value || '').normalize('NFC').trim().toLowerCase();
+  if (!token) return '';
+
+  if (token === 'athlete' || token === 'atleta') return 'atleta';
+  if (token === 'trainer' || token === 'treinador') return 'treinador';
+  if (token === 'coach') return 'coach';
+
+  return '';
 }
 
-/**
- * Obtém o perfil do usuário em /users/{uid}.
- *
- * @param {string} uid - ID do usuário autenticado
- * @returns {Promise<Object|null>} Dados do perfil ou null
- */
+function resolveCanonicalRole(userData) {
+  const roleFromPapel = normalizeRoleToken(userData?.papel);
+  const rolesFromUserTypes = Array.from(
+    new Set(
+      (Array.isArray(userData?.userTypes) ? userData.userTypes : [])
+        .map((type) => normalizeRoleToken(type))
+        .filter(Boolean)
+    )
+  );
+
+  if (rolesFromUserTypes.length === 1) {
+    return rolesFromUserTypes[0];
+  }
+
+  if (rolesFromUserTypes.length > 1) {
+    if (roleFromPapel && rolesFromUserTypes.includes(roleFromPapel)) {
+      return roleFromPapel;
+    }
+
+    if (rolesFromUserTypes.includes('coach')) return 'coach';
+    if (rolesFromUserTypes.includes('treinador')) return 'treinador';
+    if (rolesFromUserTypes.includes('atleta')) return 'atleta';
+  }
+
+  return roleFromPapel;
+}
+
+function normalizeProfileTypeFromUserData(userData) {
+  return resolveCanonicalRole(userData);
+}
+
+function normalizeUserRole(userData) {
+  return resolveCanonicalRole(userData);
+}
+
+function asTrimmedString(value) {
+  return String(value || '').trim();
+}
+
 export async function getCurrentUserProfile(uid) {
   try {
-    const userSnap = await getDoc(doc(db, 'users', uid));
+    const userRef = doc(db, 'users', uid);
+    let userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      await ensureOwnUserProfileIfMissing(uid);
+      userSnap = await getDoc(userRef);
+    }
+
     if (!userSnap.exists()) return null;
 
     const userData = userSnap.data();
     return {
-      nome: userData?.nome || '',
+      uid,
+      nome: userData?.displayName || userData?.nome || '',
       email: userData?.email || '',
-      papel: String(userData?.papel || '').normalize('NFC').trim().toLowerCase(),
-      coach_id: userData?.coach_id ?? null,
-      treinador_id: userData?.treinador_id ?? null,
-      coach_nome: userData?.coach_nome ?? null,
-      coach_email: userData?.coach_email ?? null,
-      treinador_nome: userData?.treinador_nome ?? null,
-      treinador_email: userData?.treinador_email ?? null,
+      papel: normalizeProfileTypeFromUserData(userData),
+      userTypes: Array.isArray(userData?.userTypes) ? userData.userTypes : [],
     };
   } catch (error) {
     console.error('Erro ao buscar perfil do usuário:', error);
@@ -189,233 +268,45 @@ export async function getCurrentUserProfile(uid) {
   }
 }
 
-/**
- * Busca todas as sessões do atleta.
- *
- * O retorno já vem com:
- * - id do documento
- * - dados da sessão
- * - ordenação da mais recente para a mais antiga
- *
- * @param {string} uid - ID do atleta
- * @returns {Promise<Array>}
- */
 export async function getAthleteSessions(uid) {
   try {
-    const q = query(collection(db, 'sessaotreino'), where('athleteId', '==', uid));
+    const q = query(
+      collection(db, 'activities'),
+      where('athleteUserId', '==', uid),
+      orderBy('activityDate', 'desc')
+    );
     const snap = await getDocs(q);
-    const sessions = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const sessions = snap.docs.map((d) => normalizeActivityAsSession(d));
 
     return sortSessionsByDateDesc(sessions);
   } catch (error) {
-    console.error('Erro ao buscar sessões do atleta:', error);
+    console.error('Erro ao buscar atividades do atleta:', error);
     return [];
   }
 }
 
-/**
- * Retorna apenas as sessões mais recentes.
- *
- * Mantém a regra centralizada em vez de cada página
- * decidir manualmente quantas sessões exibir.
- *
- * @param {string} uid - ID do atleta
- * @param {number} limitCount - Quantidade máxima de itens
- * @returns {Promise<Array>}
- */
-export async function getRecentAthleteSessions(uid, limitCount = 5) {
-  try {
-    const allSessions = await getAthleteSessions(uid);
-    return allSessions.slice(0, limitCount);
-  } catch (error) {
-    console.error('Erro ao buscar sessões recentes:', error);
-    return [];
-  }
-}
-
-/**
- * Retorna a sessão ativa do atleta.
- *
- * Regra de negócio:
- * sessão ativa = sessão sem dataCheckout.
- *
- * @param {string} uid - ID do atleta
- * @returns {Promise<Object|null>}
- */
-export async function getActiveSession(uid) {
+async function getTrainerAthleteSessionsScoped(trainerUid, athleteUid) {
   try {
     const q = query(
-      collection(db, 'sessaotreino'),
-      where('athleteId', '==', uid),
-      where('dataCheckout', '==', null)
+      collection(db, 'activities'),
+      where('trainerUserId', '==', trainerUid),
+      where('athleteUserId', '==', athleteUid),
+      orderBy('activityDate', 'desc')
     );
     const snap = await getDocs(q);
-    const sessions = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-    const activeSession = sessions.find(
-      (item) =>
-        item.dataCheckout === null ||
-        item.dataCheckout === undefined ||
-        item.pseFoster === null ||
-        item.pseFoster === undefined
-    );
-
-    return activeSession || null;
+    const sessions = snap.docs.map((d) => normalizeActivityAsSession(d));
+    return sortSessionsByDateDesc(sessions);
   } catch (error) {
-    console.error('Erro ao buscar sessão ativa:', error);
-    return null;
-  }
-}
- 
-/**
- * Cria um novo check-in.
- *
- * Regra de negócio:
- * - não permite novo check-in se houver sessão ativa
- * - usa schema compatível com Android
- *
- * @param {string} uid - ID do atleta
- * @param {Object} payload - Dados opcionais do check-in
- * @returns {Promise<Object>}
- * @throws {Error} Se não cumprir regras de negócio
- */
-export async function createCheckIn(uid, payload = {}) {
-  try {
-    const activeSession = await getActiveSession(uid);
-    if (activeSession) {
-      const formattedDate = formatDateTimePtBR(activeSession.dataCheckin);
-      throw new Error(
-        `Já existe um treino em aberto desde ${formattedDate}. Finalize-o antes de iniciar um novo.`
-      );
-    }
-
-    const {
-      atividades = [],
-      vfc = 0,
-      bemEstar = {},
-      recuperacao = '',
-      dorRegioes = [],
-      hidratacao = 0,
-    } = payload || {};
-
-    const normalizedBemEstar = {
-      fadiga: Number(bemEstar.fadiga) || 0,
-      sono: Number(bemEstar.sono) || 0,
-      dor: Number(bemEstar.dor) || 0,
-      estresse: Number(bemEstar.estresse) || 0,
-      humor: Number(bemEstar.humor) || 0,
-    };
-
-    const docRef = await addDoc(collection(db, 'sessaotreino'), {
-      athleteId: uid,
-      atividades: Array.isArray(atividades) ? atividades : [],
-      vfc: Number(vfc) || 0,
-      bemEstar: normalizedBemEstar,
-      recuperacao: typeof recuperacao === 'string' ? recuperacao : '',
-      dorRegioes: Array.isArray(dorRegioes) ? dorRegioes : [],
-      hidratacao: Number(hidratacao) || 0,
-      dataCheckin: serverTimestamp(),
-      dataCheckout: null,
-      pseFoster: null,
-      duracaoMin: 0,
-      carga: 0,
-    });
-
-    return {
-      id: docRef.id,
-      athleteId: uid,
-      dataCheckin: new Date(),
-    };
-  } catch (error) {
-    console.error('Erro ao criar check-in:', error);
-    throw error;
+    console.error('Erro ao buscar atividades do atleta no escopo do treinador:', error);
+    return [];
   }
 }
 
-/**
- * Finaliza uma sessão existente com check-out.
- *
- * Regras:
- * - valida duracaoMin entre 1 e 180
- * - calcula carga = pseFoster * duracaoMin
- * - grava dataCheckout com serverTimestamp()
- *
- * Compatibilidade:
- * - aceita payload com pseFoster e duracaoMin
- * - mantém suporte legível para chamada legada
- *   finishCheckOut(sessionId, dataCheckinValue)
- *
- * @param {string} sessionId - ID da sessão
- * @param {Object|Date} payloadOrCheckinValue - payload do check-out ou data de check-in legada
- * @returns {Promise<Object>}
- * @throws {Error} Se houver erro na atualização
- */
-export async function finishCheckOut(sessionId, payloadOrCheckinValue) {
-  try {
-    if (!sessionId) {
-      throw new Error('ID da sessão é obrigatório.');
-    }
-
-    const isLegacyCall =
-      payloadOrCheckinValue &&
-      (payloadOrCheckinValue instanceof Date ||
-        typeof payloadOrCheckinValue?.toDate === 'function' ||
-        payloadOrCheckinValue?.seconds);
-
-    let pseFoster = 0;
-    let duracaoMin = 0;
-
-    if (isLegacyCall) {
-      duracaoMin = calculateDurationMinutes(payloadOrCheckinValue, new Date());
-    } else {
-      const payload = payloadOrCheckinValue || {};
-      pseFoster = Number(payload.pseFoster);
-      duracaoMin = Number(payload.duracaoMin);
-
-    if (!Number.isFinite(duracaoMin) || duracaoMin < 1) {
-    throw new Error('A duração deve ser de pelo menos 1 minuto.');
-    }
-
-      if (!Number.isFinite(pseFoster)) {
-        throw new Error('PSE Foster é obrigatório para finalizar o check-out.');
-      }
-    }
-
-    const carga = pseFoster * duracaoMin;
-    const checkoutTime = new Date();
-
-    await updateDoc(doc(db, 'sessaotreino', sessionId), {
-      dataCheckout: serverTimestamp(),
-      pseFoster: Number.isFinite(pseFoster) ? pseFoster : null,
-      duracaoMin,
-      carga,
-    });
-
-    return {
-      time: checkoutTime,
-      durationMinutes: duracaoMin,
-      pseFoster: Number.isFinite(pseFoster) ? pseFoster : null,
-      carga,
-      status: 'sucesso',
-    };
-  } catch (error) {
-    console.error('Erro ao realizar check-out:', error);
-    throw error;
-  }
+export async function getRecentAthleteSessions(uid, limitCount = 5) {
+  const allSessions = await getAthleteSessions(uid);
+  return allSessions.slice(0, limitCount);
 }
 
-/**
- * Retorna os dados consolidados usados pelo dashboard.
- *
- * Centraliza cálculo de:
- * - total de sessões
- * - total de minutos
- * - label de horas
- * - atividades recentes
- *
- * @param {string} uid - ID do atleta
- * @returns {Promise<Object>}
- */
 export async function getDashboardStats(uid) {
   try {
     const sessions = await getAthleteSessions(uid);
@@ -438,58 +329,22 @@ export async function getDashboardStats(uid) {
   }
 }
 
-/**
- * Helper exportado para formatação de data/hora na UI.
- *
- * @param {any} value - Timestamp, Date ou valor compatível
- * @returns {string}
- */
 export function formatDateTimeForDisplay(value) {
   return formatDateTimePtBR(value);
 }
 
-/**
- * Helper exportado para exibição de horas acumuladas.
- *
- * @param {number} minutes - Duração em minutos
- * @returns {string}
- */
 export function formatDurationForDisplay(minutes) {
   return formatHoursFromMinutes(minutes);
 }
 
-/**
- * Helper exportado para cálculo de duração.
- *
- * Útil em componentes que precisam mostrar tempo decorrido
- * sem duplicar a lógica do service.
- *
- * @param {any} startValue
- * @param {any} endValue
- * @returns {number}
- */
 export function calculateDurationForDisplay(startValue, endValue) {
   return calculateDurationMinutes(startValue, endValue);
 }
 
-/**
- * Helper exportado para conversão de data.
- *
- * @param {any} value - Timestamp, Date ou string
- * @returns {Date|null}
- */
 export function convertToDate(value) {
   return toDateObject(value);
 }
 
-/**
- * Busca atletas vinculados a um coach.
- *
- * Regra: query em /users onde coach_id == uid
- *
- * @param {string} coachUid - UID do coach
- * @returns {Promise<Array>}
- */
 export async function getAthletesByCoach(coachUid) {
   try {
     const snap = await getDocs(
@@ -503,60 +358,23 @@ export async function getAthletesByCoach(coachUid) {
   }
 }
 
-/**
- * Busca atletas vinculados a um treinador.
- *
- * Regra: query em /users onde treinador_id == uid
- *
- * @param {string} trainerUid - UID do treinador
- * @returns {Promise<Array>}
- */
-export async function getAthletesByTrainer(trainerUid) {
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'users'), where('treinador_id', '==', trainerUid))
-    );
-    const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    const athletes = users.filter((user) => normalizeUserRole(user) === 'atleta');
-    return athletes;
-  } catch (error) {
-    console.error('Erro ao buscar atletas do treinador:', error);
-    return [];
-  }
-}
-
-/**
- * Busca treinadores vinculados a um coach.
- *
- * @param {string} coachUid - UID do coach
- * @returns {Promise<Array>}
- */
 export async function getTrainersByCoach(coachUid) {
   try {
     const snap = await getDocs(
       query(collection(db, 'users'), where('coach_id', '==', coachUid))
     );
     const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    const trainers = users.filter((user) => normalizeUserRole(user) === 'treinador');
-    return trainers;
+    return users.filter((user) => normalizeUserRole(user) === 'treinador');
   } catch (error) {
     console.error('Erro ao buscar treinadores:', error);
     return [];
   }
 }
 
-/**
- * Busca sessões de um atleta em um período.
- *
- * @param {string} athleteUid - UID do atleta
- * @param {number} days - Número de dias para filtro (7 ou 30)
- * @returns {Promise<Array>}
- */
 export async function getAthleteSessionsByPeriod(athleteUid, days = 7) {
   try {
     const allSessions = await getAthleteSessions(athleteUid);
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffDate = getPeriodCutoffStart(days);
 
     return allSessions.filter((session) => {
       const sessionDate = toDateObject(session.dataCheckout || session.dataCheckin);
@@ -568,36 +386,24 @@ export async function getAthleteSessionsByPeriod(athleteUid, days = 7) {
   }
 }
 
-/**
- * Busca estatísticas de dashboard por período.
- *
- * @param {string} uid - UID do usuário
- * @param {number} days - Período em dias (7 ou 30)
- * @returns {Promise<Object>}
- */
 export async function getDashboardStatsByPeriod(uid, days = 7) {
   try {
     const allSessions = await getAthleteSessions(uid);
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffDate = getPeriodCutoffStart(days);
 
     const sessions = allSessions.filter((session) => {
-      const sessionDate = toDateObject(session.dataCheckout || session.dataCheckin);
+      const sessionDate = getPeriodReferenceDate(session);
       return sessionDate && sessionDate >= cutoffDate;
     });
+
     const totalMinutes = sessions.reduce((acc, item) => acc + Number(item.duracaoMin || 0), 0);
 
-    // Calcula distribuição de modalidades
     const activitiesMap = {};
     sessions.forEach((session) => {
-      if (session.atividades && Array.isArray(session.atividades)) {
-        session.atividades.forEach((activity) => {
-          activitiesMap[activity] = (activitiesMap[activity] || 0) + 1;
-        });
-      }
+      const bucket = getSessionDistributionBucket(session);
+      activitiesMap[bucket] = (activitiesMap[bucket] || 0) + 1;
     });
 
-    // Encontra a sessão mais recente do atleta, mesmo fora do período filtrado.
     const latestSessionCard = buildLatestSessionCardData(allSessions);
     const lastSession = latestSessionCard?.session || null;
 
@@ -605,7 +411,7 @@ export async function getDashboardStatsByPeriod(uid, days = 7) {
       totalSessions: sessions.length,
       totalMinutes,
       totalHoursLabel: formatHoursFromMinutes(totalMinutes),
-      recentActivities: sessions,
+      recentActivities: allSessions,
       activitiesDistribution: activitiesMap,
       lastSession,
       latestSessionCard,
@@ -624,4 +430,58 @@ export async function getDashboardStatsByPeriod(uid, days = 7) {
       period: days,
     };
   }
+}
+
+export async function getTrainerDashboardStatsByPeriod(trainerUid, athleteUid, days = 7) {
+  try {
+    if (!trainerUid || !athleteUid) {
+      return {
+        totalSessions: 0,
+        totalMinutes: 0,
+        totalHoursLabel: '0h',
+        recentActivities: [],
+        activitiesDistribution: {},
+        lastSession: null,
+        latestSessionCard: null,
+        period: days,
+      };
+    }
+    const backendStats = await getTrainerDashboardStatsFromBackend({
+      trainerUid,
+      athleteUid,
+      days,
+    });
+
+    return {
+      selectedAthleteUid: athleteUid,
+      totalSessions: Number(backendStats?.totalSessions || 0),
+      totalMinutes: Number(backendStats?.totalMinutes || 0),
+      totalHoursLabel: String(backendStats?.totalHoursLabel || '0h'),
+      recentActivities: Array.isArray(backendStats?.recentActivities) ? backendStats.recentActivities : [],
+      activitiesDistribution:
+        backendStats?.activitiesDistribution && typeof backendStats.activitiesDistribution === 'object'
+          ? backendStats.activitiesDistribution
+          : {},
+      lastSession: backendStats?.lastSession || null,
+      latestSessionCard: backendStats?.latestSessionCard || null,
+      period: Number(backendStats?.period || days),
+      mode: backendStats?.mode || 'backend-admin',
+      authorization: backendStats?.authorization || 'active-trainer-athlete-link',
+      authorizedTrainerUid: backendStats?.authorizedTrainerUid || trainerUid,
+    };
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas do treinador no período:', {
+      message: error?.message,
+      code: error?.code,
+      status: error?.status,
+      endpoint: error?.endpoint,
+      runtimeConfig: error?.runtimeConfig,
+      responsePayload: error?.responsePayload,
+    });
+    throw error;
+  }
+}
+
+export async function getAthleteDashboardStats(uid, days = 7) {
+  return getAthleteDashboardStatsFromBackend({ athleteUid: uid, days });
 }

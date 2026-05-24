@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Cloud Functions local credentials (never commit)
+functions/.env
+functions/.env.local
+functions/service-account*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

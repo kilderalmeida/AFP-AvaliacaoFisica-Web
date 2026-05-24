@@ -1,9 +1,51 @@
 import { useMemo, useState, useEffect } from 'react';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext.jsx';
-import { db } from '../services/firebase/config.js';
-import { getCurrentUserProfile } from '../services/sessionService.js';
 import { useNavigate } from 'react-router-dom';
+import { useUserDisplayNames } from '../hooks/useUserDisplayNames';
+import { useAthleteTrainers } from '../hooks/useAthleteTrainers';
+import { useAssessments } from '../hooks/useAssessments';
+import { activityService } from '../services/activity.service';
+import {
+  resolveAssessmentAcademyId,
+  AssessmentAcademyUnresolvedError,
+} from '../services/assessment-academy.resolver';
+import {
+  mapPafpFormToCreateInput,
+  PafpMappingError,
+} from './AvaliacaoPAFPPage.mapper';
+
+// Helpers puros
+// Normaliza TimestampValue para Date
+function toDateSafe(val) {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === 'string' || typeof val === 'number') {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof val === 'object' && val.seconds != null && val.nanoseconds != null) {
+    if (typeof val.toDate === 'function') return val.toDate();
+    return new Date(val.seconds * 1000);
+  }
+  return null;
+}
+function formatDate(date) {
+  const d = toDateSafe(date);
+  if (!d) return '—';
+  return d.toLocaleDateString('pt-BR');
+}
+function timeSince(date) {
+  const d = toDateSafe(date);
+  if (!d) return '—';
+  const now = Date.now();
+  const then = d.getTime();
+  const diff = now - then;
+  if (diff < 0) return '—';
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'hoje';
+  if (days === 1) return 'há 1 dia';
+  return `há ${days} dias`;
+}
 
 const initialForm = {
   nome_atleta: '',
@@ -39,31 +81,52 @@ const initialForm = {
 const avaliacaoTypes = ['inicial', '60d', '90d'];
 const nivelFlexaoOptions = ['iniciante', 'intermediario', 'avancado'];
 const estabilidadeOptions = [0, 1, 2, 3, 4, 5];
-const avaliadorOptions = ['Saulo Souza', 'Gustavo Sales']; // TODO: Fetch from users with perfil 'avaliador'
+const ACADEMY_UNRESOLVED_MESSAGE =
+  'Vincule o atleta a uma academia antes de registrar a avaliação.';
 
 export default function AvaliacaoPAFPPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Histórico de avaliações (bloco novo)
+  const {
+    data: assessmentsRaw,
+    loading: loadingAssessments,
+    error: errorAssessments,
+  } = useAssessments({ athleteUserId: user?.uid || null });
+  const assessments = Array.isArray(assessmentsRaw) ? assessmentsRaw : [];
+  const sortedAssessments = useMemo(() => {
+    return [...assessments].filter(a => a && a.activityDate).sort((a, b) => {
+      const da = new Date(a.activityDate).getTime();
+      const db = new Date(b.activityDate).getTime();
+      return db - da;
+    });
+  }, [assessments]);
+  const lastAssessment = sortedAssessments.length > 0 ? sortedAssessments[0] : null;
+// ...existing code...
   const [form, setForm] = useState(initialForm);
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [userProfile, setUserProfile] = useState(null);
+  const userDisplayNames = useUserDisplayNames([user?.uid]);
 
   const totalSteps = 5;
   const progressLabel = `ETAPA ${step} DE ${totalSteps}`;
 
+  const trainerOptionsState = useAthleteTrainers(user?.uid || null);
+  const trainerOptions = trainerOptionsState.data;
+  const trainerOptionsLoading = trainerOptionsState.loading;
+  const trainerOptionsError = trainerOptionsState.error;
+  const trainerOptionIds = useMemo(
+    () => trainerOptions.map((option) => option.trainerUserId),
+    [trainerOptions],
+  );
+
   useEffect(() => {
-    if (user?.uid) {
-      getCurrentUserProfile(user.uid).then((profile) => {
-        setUserProfile(profile);
-        if (profile?.nome) {
-          setForm((prev) => ({ ...prev, nome_atleta: profile.nome }));
-        }
-      });
-    }
-  }, [user]);
+    const publicDisplayName = user?.uid ? (userDisplayNames[user.uid] || '') : '';
+    setForm((prev) => ({ ...prev, nome_atleta: publicDisplayName }));
+  }, [user?.uid, userDisplayNames]);
 
   useEffect(() => {
     if (success) {
@@ -126,7 +189,9 @@ export default function AvaliacaoPAFPPage() {
       if (!form.nome_atleta.trim()) return 'Nome do atleta não pôde ser carregado.';
       if (!form.data_avaliacao) return 'Informe a data da avaliação.';
       if (!avaliacaoTypes.includes(form.tipo_avaliacao)) return 'Selecione o tipo de avaliação.';
-      if (!avaliadorOptions.includes(form.avaliador)) return 'Selecione um avaliador válido.';
+      if (!form.avaliador || !trainerOptionIds.includes(form.avaliador)) {
+        return 'Selecione um treinador vinculado.';
+      }
     }
 
     if (step === 2) {
@@ -177,44 +242,6 @@ export default function AvaliacaoPAFPPage() {
     setStep((current) => Math.max(1, current - 1));
   };
 
-  const buildPayload = () => ({
-    nome_atleta: form.nome_atleta.trim(),
-    data_avaliacao: form.data_avaliacao ? new Date(form.data_avaliacao) : null,
-    tipo_avaliacao: form.tipo_avaliacao,
-    avaliador: form.avaliador.trim(),
-    saltos: {
-      salto_vertical_1: Number(form.saltos.salto_vertical_1),
-      salto_vertical_2: Number(form.saltos.salto_vertical_2),
-      salto_vertical_3: Number(form.saltos.salto_vertical_3),
-      salto_horizontal_1: Number(form.saltos.salto_horizontal_1),
-      salto_horizontal_2: Number(form.saltos.salto_horizontal_2),
-      salto_horizontal_3: Number(form.saltos.salto_horizontal_3),
-      salto_horizontal_4: Number(form.saltos.salto_horizontal_4),
-    },
-    estabilidade: {
-      oh_squat: Number(form.estabilidade.oh_squat),
-      agachamento_unilateral_d: Number(form.estabilidade.agachamento_unilateral_d),
-      agachamento_unilateral_e: Number(form.estabilidade.agachamento_unilateral_e),
-      anjo_parede_d: Number(form.estabilidade.anjo_parede_d),
-      anjo_parede_e: Number(form.estabilidade.anjo_parede_e),
-      centro_pia: Number(form.estabilidade.centro_pia),
-    },
-    resistencia_cardio: {
-      flexoes_1min: Number(form.resistencia_cardio.flexoes_1min),
-      nivel_execucao_flexao: form.resistencia_cardio.nivel_execucao_flexao,
-      abdominal_remador_1min: Number(form.resistencia_cardio.abdominal_remador_1min),
-      yoyo_nivel: form.resistencia_cardio.yoyo_nivel.trim(),
-    },
-    observacoes: form.observacoes.trim(),
-    melhor_salto_vertical: bestVertical,
-    melhor_salto_horizontal: bestHorizontal,
-    score_estabilidade_total: stabilityTotal,
-    score_estabilidade_media: stabilityAverage,
-    status_avaliacao: 'finalizada',
-    createdAt: serverTimestamp(),
-    athletaId: user?.uid || null,
-  });
-
   const handleSubmit = async () => {
     const validationError = validateStep();
     if (validationError) {
@@ -230,11 +257,32 @@ export default function AvaliacaoPAFPPage() {
         throw new Error('Usuário não autenticado');
       }
 
-      const payload = buildPayload();
-      await addDoc(collection(db, 'avaliacoes_pafp'), payload);
+      const trainerUserId = form.avaliador;
+      if (!trainerUserId || !trainerOptionIds.includes(trainerUserId)) {
+        throw new Error('Selecione um treinador vinculado.');
+      }
+
+      const { academyId } = await resolveAssessmentAcademyId({
+        athleteUserId: user.uid,
+        trainerUserId,
+      });
+
+      const input = mapPafpFormToCreateInput(form, {
+        athleteUserId: user.uid,
+        trainerUserId,
+        academyId,
+      });
+
+      await activityService.createActivity(input, user.uid);
       setSuccess(true);
     } catch (err) {
-      setError(err.message || 'Erro ao salvar avaliação.');
+      if (err instanceof AssessmentAcademyUnresolvedError) {
+        setError(ACADEMY_UNRESOLVED_MESSAGE);
+      } else if (err instanceof PafpMappingError) {
+        setError(err.message);
+      } else {
+        setError(err?.message || 'Erro ao salvar avaliação.');
+      }
     } finally {
       setLoading(false);
     }
@@ -281,17 +329,31 @@ export default function AvaliacaoPAFPPage() {
             </div>
 
             <div style={{ display: 'grid', gap: '0.75rem' }}>
-              <label style={{ fontWeight: 600, color: '#263238' }}>Avaliador</label>
+              <label style={{ fontWeight: 600, color: '#263238' }}>Treinador</label>
               <select
                 value={form.avaliador}
                 onChange={(event) => setForm((prev) => ({ ...prev, avaliador: event.target.value }))}
+                disabled={trainerOptionsLoading || trainerOptions.length === 0}
                 style={{ width: '100%', padding: '1rem', borderRadius: '10px', border: '1px solid #cfd8dc', fontSize: '1rem' }}
               >
-                <option value="">Selecione o avaliador</option>
-                {avaliadorOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
+                <option value="">
+                  {trainerOptionsLoading
+                    ? 'Carregando treinadores...'
+                    : trainerOptions.length === 0
+                      ? 'Nenhum treinador vinculado'
+                      : 'Selecione o treinador'}
+                </option>
+                {trainerOptions.map((option) => (
+                  <option key={option.trainerUserId} value={option.trainerUserId}>
+                    {option.displayName}{option.isPrimary ? ' (primary)' : ''}
+                  </option>
                 ))}
               </select>
+              {trainerOptionsError ? (
+                <span style={{ color: '#c62828', fontSize: '0.85rem' }}>
+                  Falha ao carregar treinadores: {trainerOptionsError.message}
+                </span>
+              ) : null}
             </div>
           </div>
         );
@@ -480,11 +542,52 @@ export default function AvaliacaoPAFPPage() {
         </header>
 
         <div style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 12px 40px rgba(0,0,0,0.08)', padding: '2rem', border: '1px solid #e2e8f0' }}>
+          {/* Bloco de avaliações anteriores */}
+          <section style={{ marginBottom: '2.5rem' }}>
+            <h2 style={{ fontSize: '1.35rem', color: '#1a237e', margin: '0 0 0.5rem 0', fontWeight: 700 }}>Histórico de Avaliações</h2>
+            {loadingAssessments ? (
+              <p style={{ color: '#1976d2', margin: 0 }}>Carregando avaliações...</p>
+            ) : errorAssessments ? (
+              <p style={{ color: '#c62828', margin: 0 }}>Erro ao carregar avaliações: {errorAssessments.message}</p>
+            ) : sortedAssessments.length === 0 ? (
+              <p style={{ color: '#546e7a', margin: 0 }}>Nenhuma avaliação registrada até o momento.</p>
+            ) : (
+              <>
+                <div style={{ marginBottom: '1rem', color: '#263238', fontWeight: 500 }}>
+                  Última avaliação: {formatDate(lastAssessment.activityDate)} ({timeSince(lastAssessment.activityDate)})
+                </div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {sortedAssessments.map((a, idx) => (
+                    <li key={a.id || idx} style={{
+                      background: '#f5f7fa',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      marginBottom: '0.75rem',
+                      padding: '1rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.25rem',
+                    }}>
+                      <div style={{ fontWeight: 600, color: '#1976d2' }}>
+                        {formatDate(a.activityDate)} ({timeSince(a.activityDate)})
+                      </div>
+                      <div style={{ color: '#263238', fontSize: '1rem' }}>
+                        Tipo: {a.assessment?.modality || '-'}
+                      </div>
+                      <div style={{ color: '#546e7a', fontSize: '0.95rem' }}>
+                        Observações: {a.assessment?.observations || '-'}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
           {success ? (
             <div style={{ textAlign: 'center', padding: '2rem', borderRadius: '14px', background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', border: '1px solid #4caf50' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
               <h2 style={{ margin: '0 0 1rem 0', color: '#2e7d32', fontSize: '1.6rem' }}>Avaliação PAFP registrada</h2>
-              <p style={{ margin: 0, color: '#2e7d32', fontSize: '1rem' }}>Os dados foram salvos na coleção <strong>avaliacoes_pafp</strong>.</p>
+              <p style={{ margin: 0, color: '#2e7d32', fontSize: '1rem' }}>Os dados foram salvos na coleção <strong>activities</strong>.</p>
             </div>
           ) : (
             <>

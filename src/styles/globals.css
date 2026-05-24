@@ -81,6 +81,71 @@ body {
   background-color: #5568d3;
 }
 
+/* Global app shell navigation */
+.app-shell-menu-button {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-shell-header {
+    padding: 0.875rem 1rem !important;
+    gap: 0.75rem !important;
+  }
+
+  .app-shell-header-top-row {
+    align-items: flex-start !important;
+  }
+
+  .app-shell-menu-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+  }
+
+  .app-shell-nav {
+    display: none !important;
+    width: 100% !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0.625rem !important;
+    padding-top: 0.25rem !important;
+  }
+
+  .app-shell-nav.is-open {
+    display: grid !important;
+  }
+
+  .app-shell-nav a {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    min-height: 48px !important;
+    border-radius: 14px !important;
+    padding: 0.85rem 1rem !important;
+    background-color: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-shell-header {
+    padding: 0.75rem 0.875rem !important;
+  }
+
+  .app-shell-nav {
+    gap: 0.5rem !important;
+  }
+
+  .app-shell-nav a {
+    font-size: 0.95rem !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .app-shell-nav {
+    display: flex !important;
+  }
+}
+
 /* Shared step navigation buttons (check-in/check-out) */
 .step-nav-actions {
   display: flex;

@@ -1,0 +1,39 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "activities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "athleteUserId", "order": "ASCENDING" },
+        { "fieldPath": "activityDate",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "activities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "athleteUserId", "order": "ASCENDING" },
+        { "fieldPath": "trainerUserId", "order": "ASCENDING" },
+        { "fieldPath": "activityDate",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "activities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trainerUserId", "order": "ASCENDING" },
+        { "fieldPath": "athleteUserId", "order": "ASCENDING" },
+        { "fieldPath": "activityDate",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "treinador_id", "order": "ASCENDING" },
+        { "fieldPath": "userTypes",    "arrayConfig": "CONTAINS" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

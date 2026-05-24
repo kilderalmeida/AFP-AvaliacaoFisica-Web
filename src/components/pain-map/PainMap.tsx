@@ -92,7 +92,7 @@ export const PainMap: React.FC<PainMapProps> = ({ selectedRegions, onSelect }) =
 
             <div
               className="pain-map-overlay"
-              aria-label="Regioes clicáveis para marcar dor"
+              aria-label="Regiões clicáveis para marcar dor"
               role="group"
               onClick={(event) => {
                 const svgId = resolvePainRegionIdFromEventTarget(event.target);
@@ -119,10 +119,10 @@ export const PainMap: React.FC<PainMapProps> = ({ selectedRegions, onSelect }) =
 
         <span className="pain-map-selected-count" aria-live="polite" aria-atomic="true">
           {selectedCount === 0
-            ? 'Nenhuma regiao selecionada'
+            ? 'Nenhuma região selecionada'
             : selectedCount === 1
-              ? '1 regiao selecionada'
-              : `${selectedCount} regioes selecionadas`}
+              ? '1 região selecionada'
+              : `${selectedCount} regiões selecionadas`}
         </span>
       </div>
     </section>

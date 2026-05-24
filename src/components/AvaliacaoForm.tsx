@@ -39,11 +39,11 @@ export const AvaliacaoForm: React.FC = () => {
           padding: 16,
         }}
       >
-        <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600 }}>Regioes selecionadas</h3>
+        <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600 }}>Regiões selecionadas</h3>
 
         {selectedRegionDetails.length === 0 ? (
           <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>
-            Nenhuma regiao marcada. Clique nas areas do mapa para indicar locais de dor.
+            Nenhuma região marcada. Clique nas áreas do mapa para indicar locais de dor.
           </p>
         ) : (
           <div>

@@ -48,10 +48,25 @@
   }
 
   .dashboard-button {
-    padding: 9px 12px !important;
-    font-size: 13px !important;
-    min-height: 44px;
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+    min-height: 46px;
     flex: 1;
+  }
+
+  .dashboard-next-step-section {
+    padding: 14px !important;
+  }
+
+  .dashboard-next-step-text {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+
+  .dashboard-next-step-actions {
+    display: grid !important;
+    gap: 10px !important;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
   }
 
   /* Filter bar refinements */
@@ -65,9 +80,9 @@
   }
 
   .dashboard-filter-select {
-    padding: 8px 10px !important;
-    font-size: 13px !important;
-    min-height: 40px;
+    padding: 9px 10px !important;
+    font-size: 14px !important;
+    min-height: 44px;
   }
 
   .dashboard-filter-label {
@@ -109,6 +124,7 @@
 
   .dashboard-recent-grid {
     gap: 8px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .dashboard-mini-label {
@@ -125,7 +141,7 @@
   }
 
   .dashboard-recent-cell {
-    min-height: 64px;
+    min-height: 68px;
     height: 100%;
   }
 
@@ -264,12 +280,25 @@
 
   .dashboard-actions-grid {
     gap: 8px !important;
+    flex-direction: column !important;
+  }
+
+  .dashboard-next-step-section {
+    padding: 12px !important;
+  }
+
+  .dashboard-next-step-actions {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .dashboard-filter-bar {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 
   .dashboard-filter-select {
     padding: 7px 8px !important;
-    font-size: 12px !important;
-    min-height: 38px;
+    font-size: 13px !important;
+    min-height: 44px;
   }
 
   .dashboard-filter-label {
@@ -343,6 +372,7 @@
 
   .dashboard-recent-grid {
     gap: 6px !important;
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 
   .dashboard-mini-label {
@@ -376,5 +406,56 @@
 
   .dashboard-mini-label .dashboard-label-short {
     display: inline;
+  }
+}
+
+/* --------------------------------------------------------------------- *
+ * Cards de prontidão (ReadinessCard, WellBeingPeriodSummary,            *
+ * InputOutputTable) — acabamento mobile e ajustes finos.                *
+ * --------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .dashboard-readiness-card,
+  .dashboard-wellbeing-period-card,
+  .dashboard-io-table-card {
+    padding: 16px !important;
+  }
+
+  .dashboard-readiness-card h3,
+  .dashboard-wellbeing-period-card h3,
+  .dashboard-io-table-card h3 {
+    font-size: 16px !important;
+  }
+
+  /* footer compacto na tabela entrada × saída */
+  .dashboard-io-table-footer {
+    font-size: 10px !important;
+    line-height: 1.4;
+  }
+
+  /* details de ajuda contextual: padding menor e fonte reduzida */
+  .dashboard-readiness-help,
+  .dashboard-io-table-help {
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-readiness-card,
+  .dashboard-wellbeing-period-card,
+  .dashboard-io-table-card {
+    padding: 14px !important;
+    border-radius: 10px !important;
+  }
+
+  /* breakdown do score: ainda mais compacto */
+  .dashboard-readiness-footer {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    font-size: 11px !important;
+    gap: 6px !important;
+  }
+
+  .dashboard-readiness-footer strong {
+    font-size: 13px;
   }
 }

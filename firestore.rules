@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: only the owner can read/write their own document.
+    // Admin SDK (Cloud Functions) bypasses these rules entirely.
+    match /users/{userId} {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Activities: athlete can read/write their own; trainer can read activities
+    // for athletes where they are the trainerUserId.
+    match /activities/{activityId} {
+      allow read: if request.auth != null && (
+        resource.data.athleteUserId == request.auth.uid ||
+        resource.data.trainerUserId == request.auth.uid
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.athleteUserId == request.auth.uid ||
+        request.resource.data.trainerUserId == request.auth.uid
+      );
+      allow update: if request.auth != null && (
+        resource.data.athleteUserId == request.auth.uid ||
+        resource.data.trainerUserId == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    // Academies: readable by authenticated users.
+    match /academies/{academyId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --no vite --version)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":5173\")",
+      "Bash(npm run *)",
+      "PowerShell($r = Invoke-WebRequest -Uri \"http://localhost:5173/\" -UseBasicParsing -TimeoutSec 5; \"$\\($r.StatusCode\\) $\\($r.Content.Substring\\(0,[Math]::Min\\(200,$r.Content.Length\\)\\)\\)\")",
+      "PowerShell(cd \"c:\\\\Users\\\\kilder.almeida.silva\\\\OneDrive - Accenture\\\\kilder\\\\CURSO_REACT\\\\AFP-AvaliacaoFisica-Web\"; Get-ChildItem functions -Name | Where-Object { $_ -ne \"node_modules\" })"
+    ]
+  }
+}

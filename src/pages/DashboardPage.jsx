@@ -7,21 +7,34 @@
  * - Atleta: apenas período + seus dados
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase/config.js';
 import './DashboardPage.css';
+import { EmptyStateCard } from '../components/feedback/EmptyStateCard';
+import { ErrorStateCard } from '../components/feedback/ErrorStateCard';
 import {
   getCurrentUserProfile,
   getDashboardStatsByPeriod,
+  getTrainerDashboardStatsByPeriod,
+  getAthleteDashboardStats,
   getAthletesByCoach,
-  getAthletesByTrainer,
   getTrainersByCoach,
   formatDateTimeForDisplay,
   calculateDurationForDisplay,
 } from '../services/sessionService.js';
+import {
+  formatTrainerAthleteOptionLabel,
+  listTrainerAthleteOptions,
+  resolveTrainerSelectedAthleteId,
+  setStoredTrainerSelectedAthleteId,
+} from '../services/trainer-athlete-context.service';
 import { getRegionByCode } from '../components/pain-map/usePainRegions';
+import { useUserDisplayNames } from '../hooks/useUserDisplayNames';
+import { ReadinessCard } from '../components/dashboard/ReadinessCard';
+import { WellBeingPeriodSummary } from '../components/dashboard/WellBeingPeriodSummary';
+import { InputOutputTable } from '../components/dashboard/InputOutputTable';
 
 const PROFILE_TYPES = {
   COACH: 'coach',
@@ -69,10 +82,19 @@ const PSE_SCALE = [
 function getPrimaryActivityLabel(session) {
   const activities = Array.isArray(session?.atividades) ? session.atividades.filter(Boolean) : [];
   if (activities.length === 0) return 'Sessão de treino';
+  // Nunca retornar 'assessment' como label principal
+  if (activities[0] === 'assessment') return 'Sessão de treino';
   return activities.join(' • ');
 }
 
 function getSessionStatusMeta(session) {
+  if (!session) {
+    return {
+      label: 'Sem sessão no período',
+      tone: 'none',
+    };
+  }
+
   const isOpen = !session?.dataCheckout;
   return {
     label: isOpen ? 'Aberta' : 'Finalizada',
@@ -200,11 +222,11 @@ function getWellBeingSummary(bemEstar) {
   if (!bemEstar || typeof bemEstar !== 'object') return null;
 
   const entries = [
-    ['Sono', Number(bemEstar.sono) || 0],
-    ['Humor', Number(bemEstar.humor) || 0],
-    ['Fadiga', Number(bemEstar.fadiga) || 0],
-    ['Dor', Number(bemEstar.dor) || 0],
-    ['Estresse', Number(bemEstar.estresse) || 0],
+    ['Sono', Number(bemEstar.sleep) || 0],
+    ['Humor', Number(bemEstar.mood) || 0],
+    ['Fadiga', Number(bemEstar.fatigue) || 0],
+    ['Dor', Number(bemEstar.pain) || 0],
+    ['Estresse', Number(bemEstar.stress) || 0],
   ].filter(([, value]) => value > 0);
 
   if (entries.length === 0) return null;
@@ -218,6 +240,90 @@ function getWellBeingSummary(bemEstar) {
   };
 }
 
+function toFriendlyDashboardErrorMessage(error) {
+  const message = String(error?.message || '').toLowerCase();
+
+  if (message.includes('endpoint is not configured')) {
+    return 'O endpoint do dashboard do treinador não foi configurado no frontend.';
+  }
+
+  if (message.includes('must be authenticated')) {
+    return 'A sessão do usuário não estava pronta para consultar o dashboard. Recarregue a página e tente novamente.';
+  }
+
+  if (message.includes('permission-denied')) {
+    return 'Seu perfil atual não possui permissão para consultar este dashboard.';
+  }
+
+  if (message.includes('no active trainer-athlete link')) {
+    return 'Não existe vínculo ativo entre treinador e atleta para esta consulta.';
+  }
+
+  if (message.includes('network')) {
+    return 'Sem conexão no momento. Verifique sua internet e tente novamente.';
+  }
+
+  if (message.includes('failed to fetch') || message.includes('load failed')) {
+    return 'Não foi possível conectar ao endpoint local do dashboard. Verifique se o emulator de Functions está rodando na porta 5001.';
+  }
+
+  if (message.includes('backend trainer dashboard request failed') || error?.status) {
+    return 'A UI não conseguiu carregar o endpoint trainerDashboardStats. Verifique a requisição no DevTools > Network.';
+  }
+
+  return 'Não foi possível carregar o dashboard agora. Tente novamente em instantes.';
+}
+
+function getNextStepSummary({
+  isAthlete,
+  isTrainer,
+  isCoach,
+  selectedAthlete,
+  latestStatusTone,
+}) {
+  if (isAthlete) {
+    if (latestStatusTone === 'open') {
+      return {
+        title: 'Próximo passo recomendado',
+        text: 'Você possui uma atividade aberta. Finalize no Check-out para concluir os registros.',
+        primaryLabel: 'Ir para Check-out',
+        primaryRoute: '/checkout',
+        secondaryLabel: 'Ver atividades',
+        secondaryRoute: '/activities',
+      };
+    }
+
+    return {
+      title: 'Próximo passo recomendado',
+      text: 'Não há atividade aberta agora. Inicie um novo ciclo de treino pelo Check-in.',
+      primaryLabel: 'Ir para Check-in',
+      primaryRoute: '/checkin',
+      secondaryLabel: 'Ver atividades',
+      secondaryRoute: '/activities',
+    };
+  }
+
+  if ((isTrainer || isCoach) && !selectedAthlete) {
+    return {
+      title: 'Próximo passo recomendado',
+      text: 'Selecione um atleta nos filtros para visualizar dados, últimas sessões e prioridades de acompanhamento.',
+      primaryLabel: null,
+      primaryRoute: null,
+      secondaryLabel: null,
+      secondaryRoute: null,
+    };
+  }
+
+  return {
+    title: 'Próximo passo recomendado',
+    text: 'Use os filtros e o histórico para identificar o que acompanhar no próximo treino.',
+    primaryLabel: 'Ver atividades',
+    primaryRoute: '/activities',
+    secondaryLabel: null,
+    secondaryRoute: null,
+  };
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   
@@ -225,9 +331,13 @@ export default function DashboardPage() {
   const [userInfo, setUserInfo] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState(null);
+  const [filtersError, setFiltersError] = useState(null);
   
   // Dashboard Data
   const [stats, setStats] = useState(null);
+    // Race condition guard: only the latest request may commit stats
+    const statsLoadGenRef = useRef(0);
   
   // Filters
   const [selectedPeriod, setSelectedPeriod] = useState(7);
@@ -244,12 +354,25 @@ export default function DashboardPage() {
   const isCoach = profileType === PROFILE_TYPES.COACH;
   const isTrainer = profileType === PROFILE_TYPES.TRAINER;
   const isAthlete = profileType === PROFILE_TYPES.ATHLETE;
+  const publicNameLookupIds = useMemo(
+    () => [
+      userInfo?.uid,
+      selectedTrainer,
+      selectedAthlete,
+      ...trainers.map((trainer) => trainer.id),
+      ...athletes.map((athlete) => athlete.id),
+      ...filteredAthletesForTrainer.map((athlete) => athlete.id),
+    ],
+    [athletes, filteredAthletesForTrainer, selectedAthlete, selectedTrainer, trainers, userInfo?.uid]
+  );
+  const userDisplayNames = useUserDisplayNames(publicNameLookupIds);
 
   // Main effect: load profile and initialize filters
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
         setLoading(true);
+        setDashboardError(null);
 
         if (!user) {
           setUserInfo(null);
@@ -267,13 +390,11 @@ export default function DashboardPage() {
         if (profileType === PROFILE_TYPES.COACH) {
           await loadCoachFilters(user.uid);
         } else if (profileType === PROFILE_TYPES.TRAINER) {
-          await loadTrainerFilters(user.uid);
+          await loadTrainerFilters(user.uid, profileData);
         }
-        
-        // Load initial stats with explicit profile type
-        await loadDashboardStats(user.uid, 7, profileType, null);
       } catch (error) {
         console.error('Error loading dashboard:', error);
+        setDashboardError(error instanceof Error ? error : new Error('Erro ao carregar dashboard'));
       } finally {
         setLoading(false);
       }
@@ -286,6 +407,7 @@ export default function DashboardPage() {
   const loadCoachFilters = async (coachUid) => {
     try {
       setLoadingFilters(true);
+      setFiltersError(null);
       const [trainersData, athletesByCoachData] = await Promise.all([
         getTrainersByCoach(coachUid),
         getAthletesByCoach(coachUid),
@@ -302,26 +424,32 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error loading trainer filters:', error);
+      setFiltersError(error instanceof Error ? error : new Error('Erro ao carregar filtros'));
     } finally {
       setLoadingFilters(false);
     }
   };
 
   // Load athletes for trainer
-  const loadTrainerFilters = async (trainerUid) => {
+  const loadTrainerFilters = async (trainerUid, profileData = null) => {
     try {
       setLoadingFilters(true);
-      const athletesData = await getAthletesByTrainer(trainerUid);
+      setFiltersError(null);
+      // Use profileData parameter to avoid reading stale React state from closure
+      const userTypes = Array.isArray(profileData?.userTypes) ? profileData.userTypes : [];
+      const includeSelfAthlete = userTypes.includes('athlete');
+      const athletesData = await listTrainerAthleteOptions(trainerUid, { includeSelfAthlete });
+      
       setAthletes(athletesData);
       
-      if (athletesData?.length > 0) {
-        setSelectedAthlete(athletesData[0]?.id);
-      } else {
-        setSelectedAthlete(null);
-        setStats(null);
-      }
+      const initialAthleteId = resolveTrainerSelectedAthleteId(trainerUid, athletesData);
+      setSelectedAthlete(initialAthleteId || null);
+      setStoredTrainerSelectedAthleteId(trainerUid, initialAthleteId);
+
+      if (!initialAthleteId) setStats(null);
     } catch (error) {
       console.error('Error loading athlete list:', error);
+      setFiltersError(error instanceof Error ? error : new Error('Erro ao carregar filtros'));
       setSelectedAthlete(null);
       setStats(null);
     } finally {
@@ -332,7 +460,7 @@ export default function DashboardPage() {
   // Load athletes for specific trainer (called when trainer changes in coach view)
   const loadAthletesForTrainer = async (trainerId) => {
     try {
-      const athletesData = await getAthletesByTrainer(trainerId);
+      const athletesData = await listTrainerAthleteOptions(trainerId);
       setFilteredAthletesForTrainer(athletesData);
       
       if (athletesData?.length > 0) {
@@ -351,27 +479,48 @@ export default function DashboardPage() {
 
   // Load dashboard stats
   const loadDashboardStats = async (uid, period, profileType, athleteId) => {
+    const gen = ++statsLoadGenRef.current;
     try {
+      setDashboardError(null);
+      
+      // For trainer/coach: require athlete selection
       if (
         (profileType === PROFILE_TYPES.COACH || profileType === PROFILE_TYPES.TRAINER) &&
         !athleteId
       ) {
-        setStats(null);
+        if (statsLoadGenRef.current === gen) setStats(null);
         return;
       }
 
-      let targetUid = uid;
+      const isTrainerOrCoach =
+        profileType === PROFILE_TYPES.COACH || profileType === PROFILE_TYPES.TRAINER;
 
-      if ((profileType === PROFILE_TYPES.COACH || profileType === PROFILE_TYPES.TRAINER) && athleteId) {
-        targetUid = athleteId;
+      let statsData;
+      if (isTrainerOrCoach) {
+        statsData = await getTrainerDashboardStatsByPeriod(
+          profileType === PROFILE_TYPES.COACH ? selectedTrainer : uid,
+          athleteId,
+          period
+        );
+      } else {
+        statsData = await getAthleteDashboardStats(uid, period);
       }
 
-      const statsData = await getDashboardStatsByPeriod(targetUid, period);
-      setStats(statsData);
+      if (statsLoadGenRef.current === gen) {
+        setStats(statsData);
+      }
     } catch (error) {
       console.error('Error loading stats:', error);
-      setStats(null);
+      if (statsLoadGenRef.current === gen) {
+        setDashboardError(error instanceof Error ? error : new Error('Erro ao carregar estatisticas'));
+        setStats(null);
+      }
     }
+  };
+
+  const handleRetryDashboard = async () => {
+    if (!userInfo) return;
+    await loadDashboardStats(userInfo.uid, selectedPeriod, profileType, selectedAthlete);
   };
 
   // Handle trainer change (for coach profile)
@@ -385,6 +534,25 @@ export default function DashboardPage() {
     }
   };
 
+  // Keep selected athlete valid when trainer athlete options refresh.
+  useEffect(() => {
+    if (!isTrainer) return;
+    if (!Array.isArray(athletes) || athletes.length === 0) {
+      if (selectedAthlete !== null) {
+        setSelectedAthlete(null);
+      }
+      return;
+    }
+
+    if (!selectedAthlete || !athletes.some((athlete) => athlete.id === selectedAthlete)) {
+      const fallbackAthleteId = athletes[0]?.id || null;
+      setSelectedAthlete(fallbackAthleteId);
+      if (userInfo?.uid) {
+        setStoredTrainerSelectedAthleteId(userInfo.uid, fallbackAthleteId || '');
+      }
+    }
+  }, [athletes, isTrainer, selectedAthlete, userInfo?.uid]);
+
   // Handle filter/period changes
   useEffect(() => {
     if (userInfo) {
@@ -396,6 +564,22 @@ export default function DashboardPage() {
       );
     }
   }, [userInfo, selectedPeriod, selectedAthlete, profileType]);
+
+  // periodSessions precisa ser declarado antes de qualquer early return
+  // para respeitar as regras de hooks (mesma ordem em todo render).
+  const periodSessions = useMemo(() => {
+    const list = Array.isArray(stats?.recentActivities) ? stats.recentActivities : [];
+    if (list.length === 0) return [];
+    const cutoff = Date.now() - (Number(selectedPeriod) || 7) * 24 * 60 * 60 * 1000;
+    return list
+      .filter((s) => s.atividades?.[0] !== 'assessment')
+      .filter((s) => {
+        const ref = s?.activityDate || s?.dataCheckin || null;
+        if (!ref) return false;
+        const ts = ref instanceof Date ? ref.getTime() : new Date(ref).getTime();
+        return Number.isFinite(ts) && ts >= cutoff;
+      });
+  }, [stats?.recentActivities, selectedPeriod]);
 
   // Render filters based on profile
   const renderFilters = () => {
@@ -414,7 +598,7 @@ export default function DashboardPage() {
             >
               {trainers.map((trainer) => (
                 <option key={trainer.id} value={trainer.id}>
-                  {trainer.nome || 'Sem nome'}
+                  {userDisplayNames[trainer.id] || trainer.id}
                 </option>
               ))}
             </select>
@@ -434,27 +618,42 @@ export default function DashboardPage() {
               >
                 {filteredAthletesForTrainer.map((athlete) => (
                   <option key={athlete.id} value={athlete.id}>
-                    {athlete.nome || 'Sem nome'}
+                    {userDisplayNames[athlete.id] || athlete.id}
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-        {isTrainer && athletes.length > 0 && (
+        {isTrainer && (
           <div style={styles.filterGroup} className="dashboard-filter-group">
             <label style={styles.filterLabel} className="dashboard-filter-label">Atleta</label>
             <select
               value={selectedAthlete || ''}
-              onChange={(e) => setSelectedAthlete(e.target.value)}
+              onChange={(e) => {
+                const nextAthleteId = e.target.value;
+                setSelectedAthlete(nextAthleteId || null);
+                if (userInfo?.uid) {
+                  setStoredTrainerSelectedAthleteId(userInfo.uid, nextAthleteId);
+                }
+              }}
               style={styles.filterSelect}
               className="dashboard-filter-select"
+              disabled={loadingFilters || athletes.length === 0}
             >
-              {athletes.map((athlete) => (
-                <option key={athlete.id} value={athlete.id}>
-                  {athlete.nome || 'Sem nome'}
-                </option>
-              ))}
+              {athletes.length === 0 ? (
+                <option value="">Nenhum atleta vinculado</option>
+              ) : (
+                athletes.map((athlete) => (
+                  <option key={athlete.id} value={athlete.id}>
+                    {formatTrainerAthleteOptionLabel(
+                      athlete.id,
+                      userDisplayNames[athlete.id] || athlete.id,
+                      athletes
+                    )}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         )}
@@ -480,34 +679,53 @@ export default function DashboardPage() {
   };
 
   if (loading) {
-    return <div style={styles.page}>Carregando seu dashboard...</div>;
+    return (
+      <div style={styles.page}>
+        <EmptyStateCard
+          title="Carregando dashboard"
+          message="Estamos preparando seu resumo de treino."
+          hint="Em geral, esse processo leva poucos segundos."
+        />
+      </div>
+    );
   }
 
   if (!profile) {
     return (
       <div style={styles.page}>
-        <div>Erro ao carregar perfil. Por favor, recarregue a página.</div>
+        <ErrorStateCard
+          title="Não foi possível carregar seu perfil"
+          message="Recarregue o dashboard para continuar. Se o problema persistir, tente entrar novamente."
+          onAction={() => {
+            window.location.reload();
+          }}
+        />
       </div>
     );
   }
 
-  const displayName = profile?.nome || userInfo?.displayName || 'Usuário';
-  const latestSessionCard = stats?.latestSessionCard || null;
-  const latestSession = latestSessionCard?.session || null;
-  const sourceSession = latestSessionCard?.sourceSession || latestSession;
+  const displayName = (userInfo?.uid && userDisplayNames[userInfo.uid]) || userInfo?.uid || 'Usuário';
+  const selectedAthleteLabel = selectedAthlete
+    ? userDisplayNames[selectedAthlete] || selectedAthlete
+    : 'Nenhum atleta selecionado';
+  // recentActivities contains ALL sessions (not period-filtered) — used for history and last session
+  const hasAnySession = Array.isArray(stats?.recentActivities) && stats.recentActivities.length > 0;
+  const latestSessionCard = hasAnySession ? stats?.latestSessionCard || null : null;
+  // Ignorar sessões assessment e sessões cujo atividades[0] === 'assessment'
+  const latestSession = hasAnySession
+    ? (stats?.recentActivities.find(s =>
+        s.activityType !== 'assessment' &&
+        !(Array.isArray(s.atividades) && s.atividades[0] === 'assessment')
+      ) || null)
+    : null;
+  const sourceSession = latestSession;
   const latestStatus = getSessionStatusMeta(latestSession);
   const hydrationMeta = getHydrationMeta(sourceSession?.hidratacao);
   const painSummary = getPainSummary(sourceSession?.dorRegioes);
   const pseMeta = getPseMeta(sourceSession?.pseFoster, latestStatus.tone === 'open');
   const wellBeingSummary = getWellBeingSummary(sourceSession?.bemEstar);
-  const sourceReferenceDate = latestSessionCard?.sourceType === 'fallback'
-    ? formatDateTimeForDisplay(sourceSession?.dataCheckout || sourceSession?.dataCheckin)
-    : null;
+  const sourceReferenceDate = null;
   const observationParts = [];
-
-  if (latestSessionCard?.inheritedNotice) {
-    observationParts.push(latestSessionCard.inheritedNotice);
-  }
 
   if (typeof sourceSession?.recuperacao === 'string' && sourceSession.recuperacao.trim()) {
     observationParts.push(`Recuperação: ${sourceSession.recuperacao.trim()}`);
@@ -522,6 +740,13 @@ export default function DashboardPage() {
   }
 
   const compactObservation = observationParts.join(' • ');
+  const nextStep = getNextStepSummary({
+    isAthlete,
+    isTrainer,
+    isCoach,
+    selectedAthlete,
+    latestStatusTone: latestStatus.tone,
+  });
 
   return (
     <div style={styles.page}>
@@ -534,6 +759,60 @@ export default function DashboardPage() {
       </header>
 
       <main style={styles.content} className="dashboard-content-grid">
+        {dashboardError ? (
+          <ErrorStateCard
+            title="Não foi possível atualizar o dashboard"
+            message={toFriendlyDashboardErrorMessage(dashboardError)}
+            onAction={() => {
+              void handleRetryDashboard();
+            }}
+          />
+        ) : null}
+
+        {filtersError ? (
+          <ErrorStateCard
+            title="Não foi possível carregar os filtros"
+            message="Os filtros de treinador/atleta podem estar incompletos no momento. Tente novamente para continuar."
+            onAction={() => {
+              if (!userInfo) return;
+              if (isCoach) {
+                void loadCoachFilters(userInfo.uid);
+                return;
+              }
+              if (isTrainer) {
+                void loadTrainerFilters(userInfo.uid, profile);
+              }
+            }}
+          />
+        ) : null}
+
+        <section style={styles.nextStepSection} className="dashboard-next-step-section">
+          <div style={styles.sectionHeader} className="dashboard-section-header">
+            <h2 style={styles.sectionTitle} className="dashboard-section-title">{nextStep.title}</h2>
+          </div>
+          <p style={styles.nextStepText} className="dashboard-next-step-text">{nextStep.text}</p>
+          <div style={styles.nextStepActions} className="dashboard-next-step-actions">
+            {nextStep.primaryLabel && nextStep.primaryRoute ? (
+              <button
+                style={styles.primaryButton}
+                className="dashboard-button"
+                onClick={() => navigate(nextStep.primaryRoute)}
+              >
+                {nextStep.primaryLabel}
+              </button>
+            ) : null}
+            {nextStep.secondaryLabel && nextStep.secondaryRoute ? (
+              <button
+                style={styles.secondaryButton}
+                className="dashboard-button"
+                onClick={() => navigate(nextStep.secondaryRoute)}
+              >
+                {nextStep.secondaryLabel}
+              </button>
+            ) : null}
+          </div>
+        </section>
+
         {/* Quick Actions - Only for Athletes */}
         {isAthlete && (
           <section style={styles.actionsSection} className="dashboard-actions-section">
@@ -569,162 +848,249 @@ export default function DashboardPage() {
         {/* Filters */}
         {renderFilters()}
 
-        {/* Latest Session */}
-        {latestSession && (
-          <section style={styles.lastActivitySection} className="dashboard-last-activity-section">
-            <div style={styles.sectionHeader} className="dashboard-section-header">
-              <h2 style={styles.sectionTitle} className="dashboard-section-title">Última sessão e sinais do atleta</h2>
-            </div>
-            <article style={styles.recentSessionCard} className="dashboard-recent-session-card">
-              <div style={styles.compactHeader} className="dashboard-recent-header">
-                <div style={styles.compactHeaderCopy}>
-                  <p style={styles.recentSessionEyebrow}>Sessão mais recente</p>
-                  <h3 style={styles.recentSessionName} className="dashboard-recent-title">{getPrimaryActivityLabel(latestSession)}</h3>
+        <section
+          key={`period-${selectedAthlete || userInfo?.uid || 'none'}-${selectedPeriod}`}
+          style={{ ...styles.groupSection, ...styles.groupSectionPeriod }}
+          className="dashboard-group-section"
+        >
+          <div style={styles.groupHeader} className="dashboard-group-header">
+            <p style={styles.groupEyebrow}>Resumo do período</p>
+            <h2 style={styles.groupTitle}>Resumo do período</h2>
+            <p style={styles.groupDescription}>Dados calculados para o período selecionado.</p>
+            {(isTrainer || isCoach) && (
+              <p style={styles.groupContextText}>Atleta em foco: {selectedAthleteLabel}</p>
+            )}
+          </div>
+
+          {/* Stats */}
+          {stats ? (
+            <section style={styles.statsSection} className="dashboard-stats-section">
+              <div style={styles.sectionHeader} className="dashboard-section-header">
+                <h2 style={styles.sectionTitle} className="dashboard-section-title">Estatísticas ({stats.period}d)</h2>
+              </div>
+              <div style={styles.statsGrid} className="dashboard-stats-grid">
+                <div style={styles.statCard} className="dashboard-stat-card">
+                  <span style={styles.statLabel} className="dashboard-stat-label">Sessões</span>
+                  <strong style={styles.statValue} className="dashboard-stat-value">{stats.totalSessions}</strong>
                 </div>
-                <div style={styles.compactChipWrap} className="dashboard-recent-chips">
-                  <span
-                    style={{
-                      ...styles.statusBadge,
-                      ...(latestStatus.tone === 'open' ? styles.statusBadgeOpen : styles.statusBadgeClosed),
-                    }}
-                  >
-                    {latestStatus.label}
-                  </span>
-                  <span
-                    style={{
-                      ...styles.sourceBadge,
-                      ...(latestSessionCard?.sourceType === 'fallback'
-                        ? styles.sourceBadgeFallback
-                        : styles.sourceBadgeCurrent),
-                    }}
-                  >
-                    {latestSessionCard?.sourceLabel || 'dados da atividade atual'}
-                  </span>
-                  {sourceReferenceDate && (
-                    <span style={styles.referenceBadge}>Base em {sourceReferenceDate}</span>
+                <div style={styles.statCard} className="dashboard-stat-card">
+                  <span style={styles.statLabel} className="dashboard-stat-label">Horas</span>
+                  <strong style={styles.statValue} className="dashboard-stat-value">{stats.totalHoursLabel}</strong>
+                </div>
+                <div style={styles.statCard} className="dashboard-stat-card">
+                  <span style={styles.statLabel} className="dashboard-stat-label">Minutos</span>
+                  <strong style={styles.statValue} className="dashboard-stat-value">{stats.totalMinutes}</strong>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <EmptyStateCard
+              title="Resumo indisponível"
+              message="Não há estatísticas para o contexto selecionado agora."
+              hint={isTrainer || isCoach
+                ? 'Selecione um atleta para visualizar o resumo do período.'
+                : 'Registre uma atividade para ver seus numeros consolidados.'}
+            />
+          )}
+
+          {/* Activities Distribution */}
+          {stats?.activitiesDistribution && Object.keys(stats.activitiesDistribution).length > 0 ? (
+            <section style={styles.activitiesSection} className="dashboard-activities-section">
+              <div style={styles.sectionHeader} className="dashboard-section-header">
+                <h2 style={styles.sectionTitle} className="dashboard-section-title">Distribuição de atividades ({stats.period}d)</h2>
+              </div>
+              <div style={styles.activitiesGrid} className="dashboard-activities-grid">
+                {Object.entries(stats.activitiesDistribution)
+                  .filter(([activity]) => activity !== 'assessment')
+                  .map(([activity, count]) => (
+                    <div key={activity} style={styles.activityItem} className="dashboard-activity-item">
+                      <span style={styles.activityName} className="dashboard-activity-name">{activity}</span>
+                      <span style={styles.activityCount} className="dashboard-activity-count">{count}</span>
+                    </div>
+                  ))}
+              </div>
+            </section>
+          ) : (
+            <EmptyStateCard
+              title="Distribuição ainda vazia"
+              message="Quando houver atividades no período, a distribuição por tipo aparece aqui."
+            />
+          )}
+
+          {/* Readiness analytics no período */}
+          <WellBeingPeriodSummary sessions={periodSessions} periodDays={selectedPeriod} />
+          <InputOutputTable sessions={periodSessions} periodDays={selectedPeriod} />
+        </section>
+
+        <section
+          key={`history-${selectedAthlete || userInfo?.uid || 'none'}`}
+          style={{ ...styles.groupSection, ...styles.groupSectionHistory }}
+          className="dashboard-group-section"
+        >
+          <div style={styles.groupHeader} className="dashboard-group-header">
+            <p style={styles.groupEyebrow}>Histórico geral da atleta</p>
+            <h2 style={styles.groupTitle}>Histórico geral da atleta</h2>
+            <p style={styles.groupDescription}>Dados baseados no histórico completo da atleta.</p>
+            {(isTrainer || isCoach) && (
+              <p style={styles.groupContextText}>Histórico completo de: {selectedAthleteLabel}</p>
+            )}
+          </div>
+
+          {/* Latest Session */}
+          {latestSession ? (
+            <section style={styles.lastActivitySection} className="dashboard-last-activity-section">
+              <div style={styles.sectionHeader} className="dashboard-section-header">
+                <div style={styles.sectionHeadingBlock}>
+                  <h2 style={styles.sectionTitle} className="dashboard-section-title">Última sessão e sinais do atleta</h2>
+                  <p style={styles.sectionHelperText}>Exibe a sessão mais recente do histórico completo da atleta.</p>
+                </div>
+              </div>
+              <ReadinessCard session={latestSession} />
+              <article style={styles.recentSessionCard} className="dashboard-recent-session-card">
+                <div style={styles.compactHeader} className="dashboard-recent-header">
+                  <div style={styles.compactHeaderCopy}>
+                    <p style={styles.recentSessionEyebrow}>Sessão mais recente</p>
+                    <h3 style={styles.recentSessionName} className="dashboard-recent-title">{getPrimaryActivityLabel(latestSession)}</h3>
+                  </div>
+                  <div style={styles.compactChipWrap} className="dashboard-recent-chips">
+                    <span
+                      style={{
+                        ...styles.statusBadge,
+                        ...(latestStatus.tone === 'open' ? styles.statusBadgeOpen : styles.statusBadgeClosed),
+                      }}
+                    >
+                      {latestStatus.label}
+                    </span>
+                    <span
+                      style={{
+                        ...styles.sourceBadge,
+                        ...(latestSessionCard?.sourceType === 'fallback'
+                          ? styles.sourceBadgeFallback
+                          : styles.sourceBadgeCurrent),
+                      }}
+                    >
+                      {latestSessionCard?.sourceLabel || 'dados da atividade atual'}
+                    </span>
+                    {sourceReferenceDate && (
+                      <span style={styles.referenceBadge}>Base em {sourceReferenceDate}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.compactQuickGrid} className="dashboard-recent-grid">
+                  <div style={styles.quickSignalCard} className="dashboard-recent-cell">
+                    <span style={styles.signalLabel}>Data/hora</span>
+                    <strong style={styles.compactSignalValue}>{formatDateTimeForDisplay(latestSession.dataCheckin)}</strong>
+                  </div>
+
+                  <div style={styles.quickSignalCard} className="dashboard-recent-cell">
+                    <span style={styles.signalLabel}>Duração</span>
+                    <strong style={styles.compactSignalValue}>{getDurationLabel(latestSession)}</strong>
+                  </div>
+
+                  <div style={{ ...styles.quickSignalCard, background: hydrationMeta.accent }} className="dashboard-recent-cell">
+                    <span style={styles.signalLabel}>Hidratação</span>
+                    <strong style={{ ...styles.compactSignalValue, color: hydrationMeta.color }}>{hydrationMeta.label}</strong>
+                    <p style={styles.compactSignalHelper}>{hydrationMeta.helper}</p>
+                  </div>
+
+                  <div style={{ ...styles.quickSignalCard, background: pseMeta.accent }} className="dashboard-recent-cell">
+                    <span style={styles.signalLabel} className="dashboard-mini-label">
+                      <span className="dashboard-label-full">PSE / Check-out</span>
+                      <span className="dashboard-label-short">PSE</span>
+                    </span>
+                    <strong style={{ ...styles.compactSignalValue, color: pseMeta.color }}>{pseMeta.label}</strong>
+                    <p style={styles.compactSignalHelper}>{pseMeta.helper}</p>
+                  </div>
+                </div>
+
+                <div style={styles.compactLineList}>
+                  <p style={styles.compactLineText}><strong>Dor:</strong> {painSummary.label}</p>
+                  <p style={styles.compactLineText}>
+                    <strong>VFC:</strong> {Number(sourceSession?.vfc) > 0 ? Number(sourceSession.vfc) : 'sem registro'}
+                  </p>
+                  {compactObservation && (
+                    <p style={styles.compactLineNote}>
+                      <strong>Observações:</strong> {compactObservation}
+                    </p>
+                  )}
+                  {!compactObservation && latestSessionCard?.sourceType === 'fallback' && (
+                    <p style={styles.compactLineNote}>Dados herdados do último registro válido.</p>
+                  )}
+                  {!compactObservation && latestSessionCard?.sourceType !== 'fallback' && (
+                    <p style={styles.compactLineMuted}>{painSummary.helper}</p>
                   )}
                 </div>
-              </div>
+              </article>
+            </section>
+          ) : (
+            <EmptyStateCard
+              title="Sem histórico de sessões"
+              message="Nenhuma sessão foi encontrada para esta atleta até o momento."
+              hint={
+                isAthlete
+                  ? 'Inicie um novo Check-in para começar seu histórico.'
+                  : 'Registre um novo treino para começar o histórico desta atleta.'
+              }
+              action={isAthlete ? (
+                <button
+                  type="button"
+                  style={styles.secondaryButton}
+                  className="dashboard-button"
+                  onClick={() => navigate('/checkin')}
+                >
+                  Iniciar Check-in
+                </button>
+              ) : null}
+            />
+          )}
 
-              <div style={styles.compactQuickGrid} className="dashboard-recent-grid">
-                <div style={styles.quickSignalCard} className="dashboard-recent-cell">
-                  <span style={styles.signalLabel}>Data/hora</span>
-                  <strong style={styles.compactSignalValue}>{formatDateTimeForDisplay(latestSession.dataCheckin)}</strong>
+          {/* Session History */}
+          {stats?.recentActivities ? (
+            <section style={styles.sessionHistorySection} className="dashboard-session-history-section">
+              <div style={styles.sectionHeader} className="dashboard-section-header">
+                <h2 style={styles.sectionTitle} className="dashboard-section-title">Histórico total de sessões</h2>
+              </div>
+              {stats.recentActivities.filter(session =>
+                session.activityType !== 'assessment' &&
+                !(Array.isArray(session.atividades) && session.atividades[0] === 'assessment')
+              ).length === 0 ? (
+                <div style={styles.emptyState}>
+                  Nenhuma sessão registrada até o momento.
                 </div>
-
-                <div style={styles.quickSignalCard} className="dashboard-recent-cell">
-                  <span style={styles.signalLabel}>Duração</span>
-                  <strong style={styles.compactSignalValue}>{getDurationLabel(latestSession)}</strong>
+              ) : (
+                <div style={styles.sessionList} className="dashboard-session-list">
+                  {stats.recentActivities
+                    .filter(session =>
+                      session.activityType !== 'assessment' &&
+                      !(Array.isArray(session.atividades) && session.atividades[0] === 'assessment')
+                    )
+                    .map((session, index) => (
+                      <article key={index} style={styles.sessionItem} className="dashboard-session-item">
+                        <div style={styles.sessionInfo}>
+                          <p style={styles.sessionActivity} className="dashboard-session-activity">
+                            {session.atividades?.[0] === 'assessment' ? 'Sessão de treino' : (session.atividades?.[0] || 'Sessão de treino')}
+                          </p>
+                          <p style={styles.sessionDate} className="dashboard-session-date">
+                            {formatDateTimeForDisplay(session.dataCheckin)}
+                          </p>
+                        </div>
+                        <span style={styles.sessionDuration} className="dashboard-session-duration">
+                          {session.duracaoMin ? `${session.duracaoMin}m` : 'N/D'}
+                        </span>
+                      </article>
+                    ))}
                 </div>
-
-                <div style={{ ...styles.quickSignalCard, background: hydrationMeta.accent }} className="dashboard-recent-cell">
-                  <span style={styles.signalLabel}>Hidratação</span>
-                  <strong style={{ ...styles.compactSignalValue, color: hydrationMeta.color }}>{hydrationMeta.label}</strong>
-                  <p style={styles.compactSignalHelper}>{hydrationMeta.helper}</p>
-                </div>
-
-                <div style={{ ...styles.quickSignalCard, background: pseMeta.accent }} className="dashboard-recent-cell">
-                  <span style={styles.signalLabel} className="dashboard-mini-label">
-                    <span className="dashboard-label-full">PSE / Check-out</span>
-                    <span className="dashboard-label-short">PSE</span>
-                  </span>
-                  <strong style={{ ...styles.compactSignalValue, color: pseMeta.color }}>{pseMeta.label}</strong>
-                  <p style={styles.compactSignalHelper}>{pseMeta.helper}</p>
-                </div>
-              </div>
-
-              <div style={styles.compactLineList}>
-                <p style={styles.compactLineText}><strong>Dor:</strong> {painSummary.label}</p>
-                <p style={styles.compactLineText}>
-                  <strong>VFC:</strong> {Number(sourceSession?.vfc) > 0 ? Number(sourceSession.vfc) : 'sem registro'}
-                </p>
-                {compactObservation && (
-                  <p style={styles.compactLineNote}>
-                    <strong>Observações:</strong> {compactObservation}
-                  </p>
-                )}
-                {!compactObservation && latestSessionCard?.sourceType === 'fallback' && (
-                  <p style={styles.compactLineNote}>Dados herdados do último registro válido.</p>
-                )}
-                {!compactObservation && latestSessionCard?.sourceType !== 'fallback' && (
-                  <p style={styles.compactLineMuted}>{painSummary.helper}</p>
-                )}
-              </div>
-            </article>
-          </section>
-        )}
-
-        {/* Stats */}
-        {stats && (
-          <section style={styles.statsSection} className="dashboard-stats-section">
-            <div style={styles.sectionHeader} className="dashboard-section-header">
-              <h2 style={styles.sectionTitle} className="dashboard-section-title">Estatísticas ({stats.period}d)</h2>
-            </div>
-            <div style={styles.statsGrid} className="dashboard-stats-grid">
-              <div style={styles.statCard} className="dashboard-stat-card">
-                <span style={styles.statLabel} className="dashboard-stat-label">Sessões</span>
-                <strong style={styles.statValue} className="dashboard-stat-value">{stats.totalSessions}</strong>
-              </div>
-              <div style={styles.statCard} className="dashboard-stat-card">
-                <span style={styles.statLabel} className="dashboard-stat-label">Horas</span>
-                <strong style={styles.statValue} className="dashboard-stat-value">{stats.totalHoursLabel}</strong>
-              </div>
-              <div style={styles.statCard} className="dashboard-stat-card">
-                <span style={styles.statLabel} className="dashboard-stat-label">Minutos</span>
-                <strong style={styles.statValue} className="dashboard-stat-value">{stats.totalMinutes}</strong>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Activities Distribution */}
-        {stats?.activitiesDistribution && Object.keys(stats.activitiesDistribution).length > 0 && (
-          <section style={styles.activitiesSection} className="dashboard-activities-section">
-            <div style={styles.sectionHeader} className="dashboard-section-header">
-              <h2 style={styles.sectionTitle} className="dashboard-section-title">Distribuição de atividades</h2>
-            </div>
-            <div style={styles.activitiesGrid} className="dashboard-activities-grid">
-              {Object.entries(stats.activitiesDistribution).map(([activity, count]) => (
-                <div key={activity} style={styles.activityItem} className="dashboard-activity-item">
-                  <span style={styles.activityName} className="dashboard-activity-name">{activity}</span>
-                  <span style={styles.activityCount} className="dashboard-activity-count">{count}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Session History */}
-        {stats?.recentActivities && (
-          <section style={styles.sessionHistorySection} className="dashboard-session-history-section">
-            <div style={styles.sectionHeader} className="dashboard-section-header">
-              <h2 style={styles.sectionTitle} className="dashboard-section-title">Histórico de sessões</h2>
-            </div>
-            {stats.recentActivities.length === 0 ? (
-              <div style={styles.emptyState}>
-                Nenhuma sessão registrada neste período
-              </div>
-            ) : (
-              <div style={styles.sessionList} className="dashboard-session-list">
-                {stats.recentActivities.map((session, index) => (
-                  <article key={index} style={styles.sessionItem} className="dashboard-session-item">
-                    <div style={styles.sessionInfo}>
-                      <p style={styles.sessionActivity} className="dashboard-session-activity">
-                        {session.atividades?.[0] || 'Sessão de treino'}
-                      </p>
-                      <p style={styles.sessionDate} className="dashboard-session-date">
-                        {formatDateTimeForDisplay(session.dataCheckin)}
-                      </p>
-                    </div>
-                    <span style={styles.sessionDuration} className="dashboard-session-duration">
-                      {session.duracaoMin ? `${session.duracaoMin}m` : 'N/D'}
-                    </span>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+              )}
+            </section>
+          ) : (
+            <EmptyStateCard
+              title="Histórico indisponível"
+              message="Não foi possível montar o histórico de sessões com os filtros atuais."
+              hint="Ajuste o período ou selecione outro atleta para continuar."
+            />
+          )}
+        </section>
       </main>
     </div>
   );
@@ -765,6 +1131,25 @@ const styles = {
     display: 'grid',
     gap: '24px',
   },
+  nextStepSection: {
+    background: '#ffffff',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    display: 'grid',
+    gap: '10px',
+  },
+  nextStepText: {
+    margin: 0,
+    color: '#374151',
+    fontSize: '15px',
+    lineHeight: 1.5,
+  },
+  nextStepActions: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+  },
   filterBar: {
     background: '#ffffff',
     borderRadius: '12px',
@@ -786,12 +1171,62 @@ const styles = {
     textTransform: 'uppercase',
   },
   filterSelect: {
-    padding: '8px 12px',
+    padding: '10px 12px',
     border: '1px solid #d1d5db',
     borderRadius: '6px',
     fontSize: '14px',
     fontFamily: 'inherit',
     cursor: 'pointer',
+    minHeight: '44px',
+  },
+  groupSection: {
+    display: 'grid',
+    gap: '16px',
+    padding: '20px',
+    borderRadius: '16px',
+    background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+  },
+  groupSectionPeriod: {
+    borderColor: '#c7d2fe',
+    background: 'linear-gradient(180deg, #f8fbff 0%, #ffffff 100%)',
+  },
+  groupSectionHistory: {
+    borderColor: '#cbd5e1',
+    background: 'linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)',
+    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+  },
+  groupHeader: {
+    display: 'grid',
+    gap: '4px',
+  },
+  groupEyebrow: {
+    margin: 0,
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: '#475569',
+  },
+  groupTitle: {
+    margin: 0,
+    fontSize: '24px',
+    lineHeight: 1.2,
+    color: '#0f172a',
+  },
+  groupDescription: {
+    margin: 0,
+    fontSize: '14px',
+    lineHeight: 1.5,
+    color: '#475569',
+  },
+  groupContextText: {
+    margin: 0,
+    fontSize: '13px',
+    lineHeight: 1.4,
+    color: '#1d4ed8',
+    fontWeight: 600,
   },
   lastActivitySection: {
     background: '#ffffff',
@@ -810,6 +1245,16 @@ const styles = {
     margin: 0,
     fontSize: '18px',
     fontWeight: 600,
+  },
+  sectionHeadingBlock: {
+    display: 'grid',
+    gap: '2px',
+  },
+  sectionHelperText: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#64748b',
+    lineHeight: 1.35,
   },
   recentSessionCard: {
     display: 'grid',
@@ -1073,7 +1518,7 @@ const styles = {
     flexWrap: 'wrap',
   },
   primaryButton: {
-    padding: '10px 16px',
+    padding: '12px 16px',
     background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
     color: '#ffffff',
     border: 'none',
@@ -1081,10 +1526,11 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     fontSize: '14px',
+    minHeight: '46px',
     transition: 'all 0.3s ease',
   },
   secondaryButton: {
-    padding: '10px 16px',
+    padding: '12px 16px',
     background: '#f3f4f6',
     color: '#374151',
     border: '1px solid #d1d5db',
@@ -1092,6 +1538,7 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     fontSize: '14px',
+    minHeight: '46px',
     transition: 'all 0.3s ease',
   },
   emptyState: {
