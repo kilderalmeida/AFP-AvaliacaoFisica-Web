@@ -99,12 +99,46 @@ async function getIdToken(uid) {
 async function callFunction(functionName, params, idToken) {
   const qs = new URLSearchParams(params).toString();
   const url = `${EMULATOR_BASE}/${functionName}?${qs}`;
+  const t0 = Date.now();
   const res = await fetch(url, {
     method: 'GET',
     headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
   });
+  const latency = Date.now() - t0;
   const body = res.ok ? await res.json() : await res.text().catch(() => '(empty)');
-  return { status: res.status, ok: res.ok, body, url };
+  return { status: res.status, ok: res.ok, body, url, latency };
+}
+
+async function callFunctionRaw(functionName, params, authHeader) {
+  const qs = new URLSearchParams(params).toString();
+  const url = `${EMULATOR_BASE}/${functionName}?${qs}`;
+  const headers = { 'Content-Type': 'application/json' };
+  if (authHeader !== undefined) headers['Authorization'] = authHeader;
+  const t0 = Date.now();
+  const res = await fetch(url, { method: 'GET', headers });
+  const latency = Date.now() - t0;
+  return { status: res.status, latency, url };
+}
+
+const REQUIRED_ACTIVITY_FIELDS = ['id', 'status'];
+const ACTIVITY_DATE_FIELDS = ['activityDate', 'dataCheckin'];
+
+function validateActivityShape(activities, label, results) {
+  if (!Array.isArray(activities) || activities.length === 0) return;
+  let errors = 0;
+  for (const a of activities) {
+    const missing = REQUIRED_ACTIVITY_FIELDS.filter((f) => a[f] === undefined || a[f] === null);
+    const hasDate = ACTIVITY_DATE_FIELDS.some((f) => a[f] !== undefined && a[f] !== null);
+    if (!hasDate) missing.push('activityDate|dataCheckin');
+    if (missing.length > 0) errors++;
+  }
+  if (errors === 0) {
+    pass(`${label} shape OK: id, activityDate/dataCheckin, status presentes em ${activities.length} atividade(s)`);
+    results.passed++;
+  } else {
+    fail(`${label} shape: ${errors}/${activities.length} atividades com campos ausentes`);
+    results.failed++;
+  }
 }
 
 function summarizeActivities(activities) {
@@ -193,10 +227,10 @@ if (athletes.length > 0) {
     log('\n  📊  Fluxo 1 — Dashboard do atleta (7 dias)');
     const f1 = await callFunction('athleteDashboardStats', { athleteUid: athlete.id, days: 7 }, athleteToken);
     log(`     Endpoint : GET ${f1.url}`);
-    log(`     Status   : HTTP ${f1.status}`);
+    log(`     Status   : HTTP ${f1.status}  (${f1.latency}ms)`);
 
     if (f1.ok) {
-      pass(`athleteDashboardStats → HTTP 200`);
+      pass(`athleteDashboardStats → HTTP 200 em ${f1.latency}ms`);
       results.passed++;
       log(`     totalSessions     : ${f1.body.totalSessions}`);
       log(`     totalHoursLabel   : ${f1.body.totalHoursLabel}`);
@@ -208,6 +242,8 @@ if (athletes.length > 0) {
       }
       if (!Array.isArray(f1.body.recentActivities)) {
         fail('recentActivities não é array'); results.failed++;
+      } else {
+        validateActivityShape(f1.body.recentActivities, 'athleteDashboardStats', results);
       }
     } else {
       fail(`athleteDashboardStats → HTTP ${f1.status}: ${typeof f1.body === 'string' ? f1.body.slice(0, 200) : JSON.stringify(f1.body).slice(0, 200)}`);
@@ -218,7 +254,7 @@ if (athletes.length > 0) {
     log('\n  📋  Fluxo 2 — Activities list do atleta (mesmo endpoint, extrai recentActivities)');
     const f2 = await callFunction('athleteDashboardStats', { athleteUid: athlete.id, days: 7 }, athleteToken);
     log(`     Endpoint : GET ${f2.url}`);
-    log(`     Status   : HTTP ${f2.status}`);
+    log(`     Status   : HTTP ${f2.status}  (${f2.latency}ms)`);
 
     if (f2.ok) {
       pass(`activities list → HTTP 200`);
@@ -318,10 +354,10 @@ if (trainers.length > 0) {
       trainerUid: trainer.id, athleteUid: athlete.id, days: 7
     }, trainerToken);
     log(`     Endpoint : GET ${f3.url}`);
-    log(`     Status   : HTTP ${f3.status}`);
+    log(`     Status   : HTTP ${f3.status}  (${f3.latency}ms)`);
 
     if (f3.ok) {
-      pass(`trainerDashboardStats → HTTP 200`);
+      pass(`trainerDashboardStats → HTTP 200 em ${f3.latency}ms`);
       results.passed++;
       log(`     totalSessions     : ${f3.body.totalSessions}`);
       log(`     totalHoursLabel   : ${f3.body.totalHoursLabel}`);
@@ -329,6 +365,9 @@ if (trainers.length > 0) {
       log(`     authorization     : ${f3.body.authorization}`);
       log(`     recentActivities  : ${summarizeActivities(f3.body.recentActivities)}`);
       log(`     última atividade  : ${lastActivityDate(f3.body.recentActivities)}`);
+      if (Array.isArray(f3.body.recentActivities)) {
+        validateActivityShape(f3.body.recentActivities, 'trainerDashboardStats', results);
+      }
     } else {
       fail(`trainerDashboardStats → HTTP ${f3.status}: ${typeof f3.body === 'string' ? f3.body.slice(0, 200) : JSON.stringify(f3.body).slice(0, 200)}`);
       results.failed++;
@@ -340,7 +379,7 @@ if (trainers.length > 0) {
       trainerUid: trainer.id, athleteUid: athlete.id, days: 7
     }, trainerToken);
     log(`     Endpoint : GET ${f4.url}`);
-    log(`     Status   : HTTP ${f4.status}`);
+    log(`     Status   : HTTP ${f4.status}  (${f4.latency}ms)`);
 
     if (f4.ok) {
       pass(`activities list treinador → HTTP 200`);
@@ -449,6 +488,39 @@ if (activitiesSnap.empty) {
     results.passed++;
     break;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Testes de segurança HTTP — sem token (401) e token malformado (403)
+// ---------------------------------------------------------------------------
+log(`\n${SEP}`);
+log('  Segurança HTTP — ausência e malformação de token');
+log(SEP);
+
+const secParams = athletes.length > 0
+  ? { athleteUid: athletes[0].id, days: 7 }
+  : { athleteUid: 'probe-uid', days: 7 };
+
+// Sem Authorization header → deve retornar 401
+const noAuth = await callFunctionRaw('athleteDashboardStats', secParams, undefined);
+log(`     [sem token]     : HTTP ${noAuth.status}  (${noAuth.latency}ms)`);
+if (noAuth.status === 401) {
+  pass('Sem token → HTTP 401 (Missing Authorization header)');
+  results.passed++;
+} else {
+  fail(`Sem token → esperado 401, recebeu ${noAuth.status}`);
+  results.failed++;
+}
+
+// Token malformado (string arbitrária) → deve retornar 403
+const badToken = await callFunctionRaw('athleteDashboardStats', secParams, 'Bearer INVALID.TOKEN.XYZ');
+log(`     [token inválido] : HTTP ${badToken.status}  (${badToken.latency}ms)`);
+if (badToken.status === 403) {
+  pass('Token malformado → HTTP 403 (Invalid or expired token)');
+  results.passed++;
+} else {
+  fail(`Token malformado → esperado 403, recebeu ${badToken.status}`);
+  results.failed++;
 }
 
 // ---------------------------------------------------------------------------
