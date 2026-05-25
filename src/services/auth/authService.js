@@ -130,6 +130,7 @@ function getErrorMessage(errorCode) {
   const errorMessages = {
     'auth/user-not-found': 'Usuário não encontrado.',
     'auth/wrong-password': 'Senha incorreta.',
+    'auth/invalid-credential': 'Email ou senha incorretos.',
     'auth/invalid-email': 'Email inválido.',
     'auth/user-disabled': 'Conta desativada.',
     'auth/email-already-in-use': 'Este email já está em uso.',
