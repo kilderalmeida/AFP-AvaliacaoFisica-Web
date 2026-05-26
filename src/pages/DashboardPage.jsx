@@ -264,7 +264,7 @@ function toFriendlyDashboardErrorMessage(error) {
   }
 
   if (message.includes('failed to fetch') || message.includes('load failed')) {
-    return 'Não foi possível conectar ao endpoint local do dashboard. Verifique se o emulator de Functions está rodando na porta 5001.';
+    return 'Não foi possível conectar ao serviço de dashboard. Verifique sua conexão e tente novamente.';
   }
 
   if (message.includes('backend trainer dashboard request failed') || error?.status) {

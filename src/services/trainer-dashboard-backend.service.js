@@ -1,13 +1,11 @@
 import { auth } from './firebase/config.js';
 
 function resolveEndpoint() {
-  const envUrl = import.meta.env.VITE_TRAINER_DASHBOARD_ENDPOINT;
-  if (envUrl) return envUrl;
-
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'afp-avaliacaofisica';
   const useEmulator = import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true';
   if (useEmulator) {
-    return `http://127.0.0.1:5001/${projectId}/us-central1/trainerDashboardStats`;
+    return import.meta.env.VITE_TRAINER_DASHBOARD_ENDPOINT
+      || `http://127.0.0.1:5001/${projectId}/us-central1/trainerDashboardStats`;
   }
   return `https://us-central1-${projectId}.cloudfunctions.net/trainerDashboardStats`;
 }
