@@ -569,10 +569,10 @@ export default function AvaliacaoPAFPPage() {
                         {formatDate(a.activityDate)} ({timeSince(a.activityDate)})
                       </div>
                       <div style={{ color: '#263238', fontSize: '1rem' }}>
-                        Tipo: {a.assessment?.modality || '-'}
+                        Tipo: {a.formData?.tipo_avaliacao || a.assessment?.modality || '-'}
                       </div>
                       <div style={{ color: '#546e7a', fontSize: '0.95rem' }}>
-                        Observações: {a.assessment?.observations || '-'}
+                        Observações: {a.formData?.observacoes || a.assessment?.observations || '-'}
                       </div>
                     </li>
                   ))}

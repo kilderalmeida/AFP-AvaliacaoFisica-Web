@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { createBrowserRouter, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Navigate, NavLink, Outlet, useLocation, useRouteError } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import DashboardPage from '../pages/DashboardPage.jsx';
@@ -30,13 +30,16 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+    errorElement: <RouteErrorPage />,
   },
   {
     path: '/',
     element: <RootRedirect />,
+    errorElement: <RouteErrorPage />,
   },
   {
     element: <ProtectedAppLayout />,
+    errorElement: <RouteErrorPage />,
     children: [
       {
         path: '/dashboard',
@@ -69,6 +72,7 @@ export const router = createBrowserRouter([
   {
     path: '*',
     element: <NotFoundPage />,
+    errorElement: <RouteErrorPage />,
   },
 ]);
 
@@ -187,6 +191,43 @@ function NotFoundPage() {
         <h1>404</h1>
         <p>Página não encontrada</p>
         <a href="/dashboard">Voltar ao Dashboard</a>
+      </div>
+    </div>
+  );
+}
+
+function RouteErrorPage() {
+  const error = useRouteError();
+  const isNotFound = error?.status === 404;
+  const rawMessage = error?.statusText || error?.message || '';
+  const cutIdx = rawMessage.indexOf('You can create it here:');
+  const message = cutIdx !== -1 ? rawMessage.slice(0, cutIdx).trim() : rawMessage;
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '2rem' }}>
+      <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{isNotFound ? '🔍' : '⚠️'}</div>
+        <h1 style={{ margin: '0 0 0.75rem', fontSize: '1.5rem', fontWeight: 700, color: '#111827' }}>
+          {isNotFound ? 'Página não encontrada' : 'Algo deu errado'}
+        </h1>
+        <p style={{ margin: '0 0 0.5rem', color: '#6b7280', fontSize: '1rem', lineHeight: 1.5 }}>
+          {isNotFound
+            ? 'A página que você procura não existe ou foi movida.'
+            : 'Um erro inesperado ocorreu. Tente voltar ao Dashboard.'}
+        </p>
+        {!isNotFound && message ? (
+          <p style={{ margin: '0 0 1.5rem', color: '#9ca3af', fontSize: '0.85rem', lineHeight: 1.4 }}>
+            {message}
+          </p>
+        ) : (
+          <div style={{ marginBottom: '1.5rem' }} />
+        )}
+        <a
+          href="/dashboard"
+          style={{ display: 'inline-block', padding: '0.75rem 1.5rem', background: '#4f46e5', color: '#fff', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '1rem' }}
+        >
+          Voltar ao Dashboard
+        </a>
       </div>
     </div>
   );
