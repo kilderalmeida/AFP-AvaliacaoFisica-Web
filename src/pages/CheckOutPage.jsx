@@ -265,9 +265,14 @@ export default function CheckOutPage() {
         throw new Error('Nenhuma atividade em aberto encontrada.');
       }
 
+      const duracaoMin = Number(form.duracaoMin);
+      if (!Number.isFinite(duracaoMin) || duracaoMin < 1) {
+        throw new Error('Informe a duração em minutos (mínimo 1 minuto).');
+      }
+
       const payload = {
         pseFoster: form.pseFoster,
-        duracaoMin: Number(form.duracaoMin),
+        duracaoMin,
       };
 
       await activityService.setActivityCheckout(
@@ -463,10 +468,10 @@ export default function CheckOutPage() {
               );
             })()}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.4rem', marginTop: '1rem', background: '#f8f9fa', borderRadius: '8px', padding: '0.75rem', fontSize: '0.8rem', color: '#546e7a' }}>
-              {FOSTER_PSE_BANDS.map(([range, desc]) => (
-                <div key={range} style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600, minWidth: '28px', color: '#37474f' }}>{range}</span>
-                  <span>{desc}</span>
+              {FOSTER_PSE_BANDS.map(({ min, max, label }) => (
+                <div key={`${min}-${max}`} style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600, minWidth: '28px', color: '#37474f' }}>{min === max ? `${min}` : `${min}-${max}`}</span>
+                  <span>{label}</span>
                 </div>
               ))}
             </div>

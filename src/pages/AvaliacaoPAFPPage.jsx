@@ -6,10 +6,6 @@ import { useAthleteTrainers } from '../hooks/useAthleteTrainers';
 import { useAssessments } from '../hooks/useAssessments';
 import { activityService } from '../services/activity.service';
 import {
-  resolveAssessmentAcademyId,
-  AssessmentAcademyUnresolvedError,
-} from '../services/assessment-academy.resolver';
-import {
   mapPafpFormToCreateInput,
   PafpMappingError,
 } from './AvaliacaoPAFPPage.mapper';
@@ -29,6 +25,12 @@ function toDateSafe(val) {
   }
   return null;
 }
+function sanitizeFirestoreError(err) {
+  const msg = err?.message || String(err);
+  const cutIdx = msg.indexOf('You can create it here:');
+  return cutIdx !== -1 ? msg.slice(0, cutIdx).trim() : msg;
+}
+
 function formatDate(date) {
   const d = toDateSafe(date);
   if (!d) return '—';
@@ -81,8 +83,6 @@ const initialForm = {
 const avaliacaoTypes = ['inicial', '60d', '90d'];
 const nivelFlexaoOptions = ['iniciante', 'intermediario', 'avancado'];
 const estabilidadeOptions = [0, 1, 2, 3, 4, 5];
-const ACADEMY_UNRESOLVED_MESSAGE =
-  'Vincule o atleta a uma academia antes de registrar a avaliação.';
 
 export default function AvaliacaoPAFPPage() {
   const { user } = useAuth();
@@ -90,7 +90,7 @@ export default function AvaliacaoPAFPPage() {
 
   // Histórico de avaliações (bloco novo)
   const {
-    data: assessmentsRaw,
+    assessments: assessmentsRaw,
     loading: loadingAssessments,
     error: errorAssessments,
   } = useAssessments({ athleteUserId: user?.uid || null });
@@ -115,7 +115,11 @@ export default function AvaliacaoPAFPPage() {
   const progressLabel = `ETAPA ${step} DE ${totalSteps}`;
 
   const trainerOptionsState = useAthleteTrainers(user?.uid || null);
-  const trainerOptions = trainerOptionsState.data;
+  const trainerOptions = useMemo(
+    () => (Array.isArray(trainerOptionsState.trainers) ? trainerOptionsState.trainers : [])
+      .map((t) => ({ trainerUserId: t.id, displayName: t.displayName || t.id, isPrimary: false })),
+    [trainerOptionsState.trainers],
+  );
   const trainerOptionsLoading = trainerOptionsState.loading;
   const trainerOptionsError = trainerOptionsState.error;
   const trainerOptionIds = useMemo(
@@ -262,23 +266,16 @@ export default function AvaliacaoPAFPPage() {
         throw new Error('Selecione um treinador vinculado.');
       }
 
-      const { academyId } = await resolveAssessmentAcademyId({
-        athleteUserId: user.uid,
-        trainerUserId,
-      });
-
       const input = mapPafpFormToCreateInput(form, {
-        athleteUserId: user.uid,
-        trainerUserId,
-        academyId,
+        athleteUid: user.uid,
+        trainerUid: trainerUserId,
+        academyId: null,
       });
 
       await activityService.createActivity(input, user.uid);
       setSuccess(true);
     } catch (err) {
-      if (err instanceof AssessmentAcademyUnresolvedError) {
-        setError(ACADEMY_UNRESOLVED_MESSAGE);
-      } else if (err instanceof PafpMappingError) {
+      if (err instanceof PafpMappingError) {
         setError(err.message);
       } else {
         setError(err?.message || 'Erro ao salvar avaliação.');
@@ -548,7 +545,7 @@ export default function AvaliacaoPAFPPage() {
             {loadingAssessments ? (
               <p style={{ color: '#1976d2', margin: 0 }}>Carregando avaliações...</p>
             ) : errorAssessments ? (
-              <p style={{ color: '#c62828', margin: 0 }}>Erro ao carregar avaliações: {errorAssessments.message}</p>
+              <p style={{ color: '#c62828', margin: 0 }}>Erro ao carregar avaliações: {sanitizeFirestoreError(errorAssessments)}</p>
             ) : sortedAssessments.length === 0 ? (
               <p style={{ color: '#546e7a', margin: 0 }}>Nenhuma avaliação registrada até o momento.</p>
             ) : (

@@ -85,6 +85,10 @@ function clampValue(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function isValidWellBeingValue(v) {
+  return Number.isFinite(v) && v >= WELL_BEING_MIN && v <= WELL_BEING_MAX;
+}
+
 function toggleSelection(list, item) {
   return list.includes(item) ? list.filter((value) => value !== item) : [...list, item];
 }
@@ -763,7 +767,7 @@ export default function CheckInPage() {
               const interp = getHydrationInterpretation(hv);
               return (
                 <p style={{ marginTop: '1.25rem', fontSize: '0.95rem', fontWeight: 600, color: interp.color, textAlign: 'center' }}>
-                  {entry.label} — {interp.text}
+                  {entry.label}{interp.description ? ` — ${interp.description}` : ''}
                 </p>
               );
             })()}

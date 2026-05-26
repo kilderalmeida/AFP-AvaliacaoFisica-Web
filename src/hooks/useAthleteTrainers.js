@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase/config.js';
 
 export function useAthleteTrainers(athleteUserId) {
@@ -14,13 +14,26 @@ export function useAthleteTrainers(athleteUserId) {
     async function load() {
       setLoading(true);
       try {
-        const snap = await getDocs(
-          query(collection(db, 'users'), where('role', '==', 'treinador'))
-        );
-        const linked = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((u) => u.athletes?.includes(athleteUserId) || u.coach_id === athleteUserId);
-        if (!cancelled) setTrainers(linked);
+        const athleteSnap = await getDoc(doc(db, 'users', athleteUserId));
+        const treinadorId = athleteSnap.data()?.treinador_id;
+
+        if (!treinadorId) {
+          if (!cancelled) setTrainers([]);
+          return;
+        }
+
+        let displayName = treinadorId;
+        try {
+          const trainerSnap = await getDoc(doc(db, 'users', treinadorId));
+          if (trainerSnap.exists()) {
+            const td = trainerSnap.data();
+            displayName = td.displayName || td.nome || td.email || treinadorId;
+          }
+        } catch {
+          // rule may not allow reading trainer doc yet; fall back to uid
+        }
+
+        if (!cancelled) setTrainers([{ id: treinadorId, displayName, isPrimary: true }]);
       } catch (err) {
         if (!cancelled) setError(err);
       } finally {

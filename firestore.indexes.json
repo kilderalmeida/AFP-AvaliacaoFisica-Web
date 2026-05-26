@@ -27,6 +27,15 @@
       ]
     },
     {
+      "collectionGroup": "activities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "athleteUserId", "order": "ASCENDING" },
+        { "fieldPath": "activityType",  "order": "ASCENDING" },
+        { "fieldPath": "activityDate",  "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
