@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { useUserDisplayNames } from '../hooks/useUserDisplayNames';
 import { useAthleteTrainers } from '../hooks/useAthleteTrainers';
 import { useAssessments } from '../hooks/useAssessments';
-import { activityService } from '../services/activity.service';
+import { assessmentService } from '../services/assessment.service';
+import { getCurrentUserProfile } from '../services/sessionService.js';
+import { listTrainerAthleteOptions } from '../services/trainer-athlete-context.service.js';
 import {
   mapPafpFormToCreateInput,
   PafpMappingError,
@@ -29,6 +31,9 @@ function sanitizeFirestoreError(err) {
   const msg = err?.message || String(err);
   const cutIdx = msg.indexOf('You can create it here:');
   return cutIdx !== -1 ? msg.slice(0, cutIdx).trim() : msg;
+}
+function normalizeRole(profileData) {
+  return String(profileData?.papel || '').normalize('NFC').trim().toLowerCase();
 }
 
 function formatDate(date) {
@@ -88,12 +93,48 @@ export default function AvaliacaoPAFPPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Histórico de avaliações (bloco novo)
+  // Role detection
+  const [role, setRole] = useState('');
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  // Trainer-only: athlete selection
+  const [athleteOptions, setAthleteOptions] = useState([]);
+  const [selectedAthleteId, setSelectedAthleteId] = useState(null);
+
+  useEffect(() => {
+    if (!user?.uid) { setLoadingProfile(false); return; }
+    async function loadProfile() {
+      try {
+        const profileData = await getCurrentUserProfile(user.uid);
+        const r = normalizeRole(profileData);
+        setRole(r);
+        if (r === 'treinador' || r === 'coach') {
+          const options = await listTrainerAthleteOptions(user.uid);
+          setAthleteOptions(Array.isArray(options) ? options : []);
+        }
+      } catch {
+        // on error, default to athlete role (safe fallback)
+      } finally {
+        setLoadingProfile(false);
+      }
+    }
+    loadProfile();
+  }, [user?.uid]);
+
+  const isTrainer = role === 'treinador' || role === 'coach';
+
+  // Derived UIDs — null while profile is loading to avoid spurious Firestore reads
+  const assessmentAthleteId = loadingProfile ? null : (isTrainer ? selectedAthleteId : (user?.uid || null));
+  // For trainer: pass their own UID so the query includes trainerUserId filter,
+  // which is required for Firestore to authorize the collection query against the security rules.
+  const assessmentTrainerUid = loadingProfile ? null : (isTrainer ? (user?.uid || null) : null);
+  const trainerHookUid = loadingProfile ? null : (isTrainer ? null : (user?.uid || null));
+
+  // Histórico de avaliações
   const {
     assessments: assessmentsRaw,
     loading: loadingAssessments,
     error: errorAssessments,
-  } = useAssessments({ athleteUserId: user?.uid || null });
+  } = useAssessments({ athleteUserId: assessmentAthleteId, trainerUserId: assessmentTrainerUid });
   const assessments = Array.isArray(assessmentsRaw) ? assessmentsRaw : [];
   const sortedAssessments = useMemo(() => {
     return [...assessments].filter(a => a && a.activityDate).sort((a, b) => {
@@ -103,7 +144,7 @@ export default function AvaliacaoPAFPPage() {
     });
   }, [assessments]);
   const lastAssessment = sortedAssessments.length > 0 ? sortedAssessments[0] : null;
-// ...existing code...
+
   const [form, setForm] = useState(initialForm);
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
@@ -114,7 +155,8 @@ export default function AvaliacaoPAFPPage() {
   const totalSteps = 5;
   const progressLabel = `ETAPA ${step} DE ${totalSteps}`;
 
-  const trainerOptionsState = useAthleteTrainers(user?.uid || null);
+  // Trainer options — only fetched for athlete role (trainer IS the evaluator)
+  const trainerOptionsState = useAthleteTrainers(trainerHookUid);
   const trainerOptions = useMemo(
     () => (Array.isArray(trainerOptionsState.trainers) ? trainerOptionsState.trainers : [])
       .map((t) => ({ trainerUserId: t.id, displayName: t.displayName || t.id, isPrimary: false })),
@@ -127,10 +169,19 @@ export default function AvaliacaoPAFPPage() {
     [trainerOptions],
   );
 
+  // nome_atleta: athlete path uses own display name
   useEffect(() => {
+    if (isTrainer) return;
     const publicDisplayName = user?.uid ? (userDisplayNames[user.uid] || '') : '';
     setForm((prev) => ({ ...prev, nome_atleta: publicDisplayName }));
-  }, [user?.uid, userDisplayNames]);
+  }, [user?.uid, userDisplayNames, isTrainer]);
+
+  // nome_atleta: trainer path uses selected athlete's display name
+  useEffect(() => {
+    if (!isTrainer) return;
+    const athlete = athleteOptions.find((a) => a.id === selectedAthleteId);
+    setForm((prev) => ({ ...prev, nome_atleta: athlete?.displayName || '' }));
+  }, [isTrainer, selectedAthleteId, athleteOptions]);
 
   useEffect(() => {
     if (success) {
@@ -190,12 +241,16 @@ export default function AvaliacaoPAFPPage() {
 
   const validateStep = () => {
     if (step === 1) {
-      if (!form.nome_atleta.trim()) return 'Nome do atleta não pôde ser carregado.';
+      if (isTrainer) {
+        if (!selectedAthleteId) return 'Selecione o atleta a ser avaliado.';
+      } else {
+        if (!form.nome_atleta.trim()) return 'Nome do atleta não pôde ser carregado.';
+        if (!form.avaliador || !trainerOptionIds.includes(form.avaliador)) {
+          return 'Selecione um treinador vinculado.';
+        }
+      }
       if (!form.data_avaliacao) return 'Informe a data da avaliação.';
       if (!avaliacaoTypes.includes(form.tipo_avaliacao)) return 'Selecione o tipo de avaliação.';
-      if (!form.avaliador || !trainerOptionIds.includes(form.avaliador)) {
-        return 'Selecione um treinador vinculado.';
-      }
     }
 
     if (step === 2) {
@@ -261,18 +316,27 @@ export default function AvaliacaoPAFPPage() {
         throw new Error('Usuário não autenticado');
       }
 
-      const trainerUserId = form.avaliador;
-      if (!trainerUserId || !trainerOptionIds.includes(trainerUserId)) {
-        throw new Error('Selecione um treinador vinculado.');
+      let athleteUid, trainerUid;
+      if (isTrainer) {
+        if (!selectedAthleteId) throw new Error('Selecione o atleta a ser avaliado.');
+        athleteUid = selectedAthleteId;
+        trainerUid = user.uid;
+      } else {
+        const trainerUserId = form.avaliador;
+        if (!trainerUserId || !trainerOptionIds.includes(trainerUserId)) {
+          throw new Error('Selecione um treinador vinculado.');
+        }
+        athleteUid = user.uid;
+        trainerUid = trainerUserId;
       }
 
       const input = mapPafpFormToCreateInput(form, {
-        athleteUid: user.uid,
-        trainerUid: trainerUserId,
+        athleteUid,
+        trainerUid,
         academyId: null,
       });
 
-      await activityService.createActivity(input, user.uid);
+      await assessmentService.createAssessment(input, user.uid);
       setSuccess(true);
     } catch (err) {
       if (err instanceof PafpMappingError) {
@@ -290,15 +354,34 @@ export default function AvaliacaoPAFPPage() {
       case 1:
         return (
           <div style={{ display: 'grid', gap: '1.25rem' }}>
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
-              <label style={{ fontWeight: 600, color: '#263238' }}>Nome do atleta</label>
-              <input
-                type="text"
-                value={form.nome_atleta}
-                readOnly
-                style={{ width: '100%', padding: '1rem', borderRadius: '10px', border: '1px solid #cfd8dc', fontSize: '1rem', backgroundColor: '#f5f5f5', color: '#666' }}
-              />
-            </div>
+            {isTrainer ? (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                <label style={{ fontWeight: 600, color: '#263238' }}>Atleta</label>
+                <select
+                  value={selectedAthleteId || ''}
+                  onChange={(e) => setSelectedAthleteId(e.target.value || null)}
+                  disabled={athleteOptions.length === 0}
+                  style={{ width: '100%', padding: '1rem', borderRadius: '10px', border: '1px solid #cfd8dc', fontSize: '1rem' }}
+                >
+                  <option value="">
+                    {athleteOptions.length === 0 ? 'Nenhum atleta vinculado' : 'Selecione o atleta'}
+                  </option>
+                  {athleteOptions.map((a) => (
+                    <option key={a.id} value={a.id}>{a.displayName}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                <label style={{ fontWeight: 600, color: '#263238' }}>Nome do atleta</label>
+                <input
+                  type="text"
+                  value={form.nome_atleta}
+                  readOnly
+                  style={{ width: '100%', padding: '1rem', borderRadius: '10px', border: '1px solid #cfd8dc', fontSize: '1rem', backgroundColor: '#f5f5f5', color: '#666' }}
+                />
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div style={{ display: 'grid', gap: '0.75rem' }}>
@@ -325,33 +408,35 @@ export default function AvaliacaoPAFPPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
-              <label style={{ fontWeight: 600, color: '#263238' }}>Treinador</label>
-              <select
-                value={form.avaliador}
-                onChange={(event) => setForm((prev) => ({ ...prev, avaliador: event.target.value }))}
-                disabled={trainerOptionsLoading || trainerOptions.length === 0}
-                style={{ width: '100%', padding: '1rem', borderRadius: '10px', border: '1px solid #cfd8dc', fontSize: '1rem' }}
-              >
-                <option value="">
-                  {trainerOptionsLoading
-                    ? 'Carregando treinadores...'
-                    : trainerOptions.length === 0
-                      ? 'Nenhum treinador vinculado'
-                      : 'Selecione o treinador'}
-                </option>
-                {trainerOptions.map((option) => (
-                  <option key={option.trainerUserId} value={option.trainerUserId}>
-                    {option.displayName}{option.isPrimary ? ' (primary)' : ''}
+            {!isTrainer && (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                <label style={{ fontWeight: 600, color: '#263238' }}>Treinador</label>
+                <select
+                  value={form.avaliador}
+                  onChange={(event) => setForm((prev) => ({ ...prev, avaliador: event.target.value }))}
+                  disabled={trainerOptionsLoading || trainerOptions.length === 0}
+                  style={{ width: '100%', padding: '1rem', borderRadius: '10px', border: '1px solid #cfd8dc', fontSize: '1rem' }}
+                >
+                  <option value="">
+                    {trainerOptionsLoading
+                      ? 'Carregando treinadores...'
+                      : trainerOptions.length === 0
+                        ? 'Nenhum treinador vinculado'
+                        : 'Selecione o treinador'}
                   </option>
-                ))}
-              </select>
-              {trainerOptionsError ? (
-                <span style={{ color: '#c62828', fontSize: '0.85rem' }}>
-                  Falha ao carregar treinadores: {trainerOptionsError.message}
-                </span>
-              ) : null}
-            </div>
+                  {trainerOptions.map((option) => (
+                    <option key={option.trainerUserId} value={option.trainerUserId}>
+                      {option.displayName}{option.isPrimary ? ' (primary)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {trainerOptionsError ? (
+                  <span style={{ color: '#c62828', fontSize: '0.85rem' }}>
+                    Falha ao carregar treinadores: {trainerOptionsError.message}
+                  </span>
+                ) : null}
+              </div>
+            )}
           </div>
         );
       case 2:
@@ -527,6 +612,14 @@ export default function AvaliacaoPAFPPage() {
     }
   };
 
+  if (loadingProfile) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#546e7a', fontSize: '1rem' }}>Carregando...</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)', padding: '2rem 1rem' }}>
       <div style={{ maxWidth: '760px', margin: '0 auto' }}>
@@ -569,10 +662,10 @@ export default function AvaliacaoPAFPPage() {
                         {formatDate(a.activityDate)} ({timeSince(a.activityDate)})
                       </div>
                       <div style={{ color: '#263238', fontSize: '1rem' }}>
-                        Tipo: {a.formData?.tipo_avaliacao || a.assessment?.modality || '-'}
+                        Tipo: {a.formData?.tipo_avaliacao || '-'}
                       </div>
                       <div style={{ color: '#546e7a', fontSize: '0.95rem' }}>
-                        Observações: {a.formData?.observacoes || a.assessment?.observations || '-'}
+                        Observações: {a.formData?.observacoes || '-'}
                       </div>
                     </li>
                   ))}
@@ -584,7 +677,7 @@ export default function AvaliacaoPAFPPage() {
             <div style={{ textAlign: 'center', padding: '2rem', borderRadius: '14px', background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', border: '1px solid #4caf50' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
               <h2 style={{ margin: '0 0 1rem 0', color: '#2e7d32', fontSize: '1.6rem' }}>Avaliação PAFP registrada</h2>
-              <p style={{ margin: 0, color: '#2e7d32', fontSize: '1rem' }}>Os dados foram salvos na coleção <strong>activities</strong>.</p>
+              <p style={{ margin: 0, color: '#2e7d32', fontSize: '1rem' }}>Os dados foram salvos na coleção <strong>assessments</strong>.</p>
             </div>
           ) : (
             <>

@@ -82,8 +82,6 @@ const PSE_SCALE = [
 function getPrimaryActivityLabel(session) {
   const activities = Array.isArray(session?.atividades) ? session.atividades.filter(Boolean) : [];
   if (activities.length === 0) return 'Sessão de treino';
-  // Nunca retornar 'assessment' como label principal
-  if (activities[0] === 'assessment') return 'Sessão de treino';
   return activities.join(' • ');
 }
 
@@ -572,7 +570,6 @@ export default function DashboardPage() {
     if (list.length === 0) return [];
     const cutoff = Date.now() - (Number(selectedPeriod) || 7) * 24 * 60 * 60 * 1000;
     return list
-      .filter((s) => s.atividades?.[0] !== 'assessment')
       .filter((s) => {
         const ref = s?.activityDate || s?.dataCheckin || null;
         if (!ref) return false;
@@ -711,13 +708,7 @@ export default function DashboardPage() {
   // recentActivities contains ALL sessions (not period-filtered) — used for history and last session
   const hasAnySession = Array.isArray(stats?.recentActivities) && stats.recentActivities.length > 0;
   const latestSessionCard = hasAnySession ? stats?.latestSessionCard || null : null;
-  // Ignorar sessões assessment e sessões cujo atividades[0] === 'assessment'
-  const latestSession = hasAnySession
-    ? (stats?.recentActivities.find(s =>
-        s.activityType !== 'assessment' &&
-        !(Array.isArray(s.atividades) && s.atividades[0] === 'assessment')
-      ) || null)
-    : null;
+  const latestSession = hasAnySession ? (stats?.recentActivities[0] || null) : null;
   const sourceSession = latestSession;
   const latestStatus = getSessionStatusMeta(latestSession);
   const hydrationMeta = getHydrationMeta(sourceSession?.hidratacao);
@@ -901,7 +892,6 @@ export default function DashboardPage() {
               </div>
               <div style={styles.activitiesGrid} className="dashboard-activities-grid">
                 {Object.entries(stats.activitiesDistribution)
-                  .filter(([activity]) => activity !== 'assessment')
                   .map(([activity, count]) => (
                     <div key={activity} style={styles.activityItem} className="dashboard-activity-item">
                       <span style={styles.activityName} className="dashboard-activity-name">{activity}</span>
@@ -1051,25 +1041,18 @@ export default function DashboardPage() {
               <div style={styles.sectionHeader} className="dashboard-section-header">
                 <h2 style={styles.sectionTitle} className="dashboard-section-title">Histórico total de sessões</h2>
               </div>
-              {stats.recentActivities.filter(session =>
-                session.activityType !== 'assessment' &&
-                !(Array.isArray(session.atividades) && session.atividades[0] === 'assessment')
-              ).length === 0 ? (
+              {stats.recentActivities.length === 0 ? (
                 <div style={styles.emptyState}>
                   Nenhuma sessão registrada até o momento.
                 </div>
               ) : (
                 <div style={styles.sessionList} className="dashboard-session-list">
                   {stats.recentActivities
-                    .filter(session =>
-                      session.activityType !== 'assessment' &&
-                      !(Array.isArray(session.atividades) && session.atividades[0] === 'assessment')
-                    )
                     .map((session, index) => (
                       <article key={index} style={styles.sessionItem} className="dashboard-session-item">
                         <div style={styles.sessionInfo}>
                           <p style={styles.sessionActivity} className="dashboard-session-activity">
-                            {session.atividades?.[0] === 'assessment' ? 'Sessão de treino' : (session.atividades?.[0] || 'Sessão de treino')}
+                            {session.atividades?.[0] || 'Sessão de treino'}
                           </p>
                           <p style={styles.sessionDate} className="dashboard-session-date">
                             {formatDateTimeForDisplay(session.dataCheckin)}

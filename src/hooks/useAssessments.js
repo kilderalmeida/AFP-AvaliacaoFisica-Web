@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../services/firebase/config.js';
 
-export function useAssessments({ athleteUserId }) {
+export function useAssessments({ athleteUserId, trainerUserId = null }) {
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -13,12 +13,15 @@ export function useAssessments({ athleteUserId }) {
 
     async function load() {
       setLoading(true);
+      setError(null);
       try {
+        // When trainerUserId is provided the query includes it so Firestore can
+        // verify the trainerUserId == auth.uid rule condition at query evaluation time.
         const snap = await getDocs(
           query(
-            collection(db, 'activities'),
+            collection(db, 'assessments'),
             where('athleteUserId', '==', athleteUserId),
-            where('activityType', '==', 'assessment'),
+            ...(trainerUserId ? [where('trainerUserId', '==', trainerUserId)] : []),
             orderBy('activityDate', 'desc')
           )
         );
@@ -34,7 +37,7 @@ export function useAssessments({ athleteUserId }) {
 
     load();
     return () => { cancelled = true; };
-  }, [athleteUserId]);
+  }, [athleteUserId, trainerUserId]);
 
   return { assessments, loading, error };
 }

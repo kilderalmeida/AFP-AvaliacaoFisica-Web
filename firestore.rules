@@ -32,6 +32,24 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Assessments (PAFP): athlete can read/write their own; trainer can read
+    // assessments for athletes they evaluated.
+    match /assessments/{assessmentId} {
+      allow read: if request.auth != null && (
+        resource.data.athleteUserId == request.auth.uid ||
+        resource.data.trainerUserId == request.auth.uid
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.athleteUserId == request.auth.uid ||
+        request.resource.data.trainerUserId == request.auth.uid
+      );
+      allow update: if request.auth != null && (
+        resource.data.athleteUserId == request.auth.uid ||
+        resource.data.trainerUserId == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
     // Academies: readable by authenticated users.
     match /academies/{academyId} {
       allow read: if request.auth != null;

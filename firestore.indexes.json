@@ -27,11 +27,19 @@
       ]
     },
     {
-      "collectionGroup": "activities",
+      "collectionGroup": "assessments",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "athleteUserId", "order": "ASCENDING" },
-        { "fieldPath": "activityType",  "order": "ASCENDING" },
+        { "fieldPath": "activityDate",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "athleteUserId", "order": "ASCENDING" },
+        { "fieldPath": "trainerUserId", "order": "ASCENDING" },
         { "fieldPath": "activityDate",  "order": "DESCENDING" }
       ]
     },

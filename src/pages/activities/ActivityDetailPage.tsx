@@ -56,7 +56,7 @@ function normalizeFromFirestore(docSnap: { id: string; data: () => Record<string
 
 function getActivityLabel(activity: Activity): string {
   const atividades = Array.isArray(activity?.atividades) ? activity.atividades.filter(Boolean) : [];
-  if (atividades.length === 0 || atividades[0] === 'assessment') return 'Sessão de treino';
+  if (atividades.length === 0) return 'Sessão de treino';
   return atividades.join(' • ');
 }
 

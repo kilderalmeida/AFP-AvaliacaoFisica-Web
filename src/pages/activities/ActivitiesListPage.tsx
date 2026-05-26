@@ -39,7 +39,7 @@ function normalizeRole(profileData: unknown): string {
 
 function getActivityLabel(activity: Activity): string {
   const atividades = Array.isArray(activity?.atividades) ? activity.atividades.filter(Boolean) : [];
-  if (atividades.length === 0 || atividades[0] === 'assessment') return 'Sessão de treino';
+  if (atividades.length === 0) return 'Sessão de treino';
   return atividades.join(' • ');
 }
 
@@ -128,9 +128,6 @@ export default function ActivitiesListPage() {
 
   const role = normalizeRole(profile);
   const isTrainer = role === 'treinador' || role === 'coach';
-  const visibleActivities = activities.filter(
-    (a) => !(Array.isArray(a.atividades) && a.atividades[0] === 'assessment')
-  );
 
   if (loading) {
     return (
@@ -194,7 +191,7 @@ export default function ActivitiesListPage() {
         <EmptyStateCard title="Carregando..." message="Buscando atividades." />
       )}
 
-      {!error && !loadingActivities && visibleActivities.length === 0 && (!isTrainer || selectedAthlete) && (
+      {!error && !loadingActivities && activities.length === 0 && (!isTrainer || selectedAthlete) && (
         <EmptyStateCard
           title="Nenhuma atividade encontrada"
           message="Ainda não há atividades registradas para este contexto."
@@ -213,9 +210,9 @@ export default function ActivitiesListPage() {
         />
       )}
 
-      {!error && !loadingActivities && visibleActivities.length > 0 && (
+      {!error && !loadingActivities && activities.length > 0 && (
         <section style={styles.list}>
-          {visibleActivities.map((activity, index) => {
+          {activities.map((activity, index) => {
             const status = getStatusMeta(activity);
             return (
               <article

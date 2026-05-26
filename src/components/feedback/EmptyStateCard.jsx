@@ -1,4 +1,4 @@
-export function EmptyStateCard({ title, message = null, hint = null, action = null }) {
+export function EmptyStateCard({ title, message = undefined, hint = undefined, action = undefined }) {
   return (
     <div style={styles.container}>
       <p style={styles.title}>{title}</p>

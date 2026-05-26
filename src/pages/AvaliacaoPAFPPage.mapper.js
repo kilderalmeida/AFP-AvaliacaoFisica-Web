@@ -10,7 +10,6 @@ export function mapPafpFormToCreateInput(form, { academyId, trainerUid, athleteU
   if (!athleteUid) throw new PafpMappingError('athleteUid is required');
 
   return {
-    activityType: 'assessment',
     athleteUserId: athleteUid,
     trainerUserId: trainerUid || null,
     academyId: academyId || null,
