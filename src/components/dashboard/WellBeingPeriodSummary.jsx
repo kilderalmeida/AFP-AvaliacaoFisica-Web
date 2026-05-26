@@ -27,7 +27,12 @@ export function WellBeingPeriodSummary({ sessions, periodDays }) {
 
   return (
     <div style={styles.container}>
-      <p style={styles.eyebrow}>Bem-estar médio — {periodDays}d</p>
+      <div style={styles.header}>
+        <p style={styles.eyebrow}>Bem-estar médio — {periodDays}d</p>
+        <p style={styles.description}>
+          Média de sono, humor, fadiga, dor e estresse informados nos check-ins do período.
+        </p>
+      </div>
       <div style={styles.grid}>
         {metrics.map(({ key, label, avg }) => (
           <div key={key} style={styles.cell}>
@@ -49,6 +54,10 @@ const styles = {
     display: 'grid',
     gap: '12px',
   },
+  header: {
+    display: 'grid',
+    gap: '3px',
+  },
   eyebrow: {
     margin: 0,
     fontSize: '11px',
@@ -56,6 +65,12 @@ const styles = {
     textTransform: 'uppercase',
     letterSpacing: '0.07em',
     color: '#475569',
+  },
+  description: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#64748b',
+    lineHeight: 1.45,
   },
   grid: {
     display: 'flex',

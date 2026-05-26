@@ -29,7 +29,13 @@ export function ReadinessCard({ session }) {
 
   return (
     <div style={styles.card}>
-      <p style={styles.eyebrow}>Prontidão do atleta</p>
+      <div style={styles.cardHeader}>
+        <p style={styles.eyebrow}>Prontidão</p>
+        <p style={styles.description}>
+          VFC e bem-estar do check-in indicam o nível de recuperação antes do treino.
+          VFC mais alta e bem-estar elevado sugerem maior prontidão para o esforço.
+        </p>
+      </div>
       <div style={styles.grid}>
         {vfc > 0 && (
           <div style={{ ...styles.cell, background: vfcReadiness.accent }}>
@@ -58,6 +64,10 @@ const styles = {
     display: 'grid',
     gap: '10px',
   },
+  cardHeader: {
+    display: 'grid',
+    gap: '4px',
+  },
   eyebrow: {
     margin: 0,
     fontSize: '11px',
@@ -65,6 +75,12 @@ const styles = {
     textTransform: 'uppercase',
     letterSpacing: '0.07em',
     color: '#166534',
+  },
+  description: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#15803d',
+    lineHeight: 1.5,
   },
   grid: {
     display: 'flex',

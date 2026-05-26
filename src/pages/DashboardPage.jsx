@@ -743,7 +743,7 @@ export default function DashboardPage() {
     <div style={styles.page}>
       <header style={styles.header} className="dashboard-header-section">
         <div>
-          <p style={styles.eyebrow} className="dashboard-eyebrow">Painel do dashboard</p>
+          <p style={styles.eyebrow} className="dashboard-eyebrow">Painel</p>
           <h1 style={styles.title} className="dashboard-title">Dashboard</h1>
           <p style={styles.subtitle} className="dashboard-subtitle">Olá, {displayName}</p>
         </div>
@@ -845,9 +845,9 @@ export default function DashboardPage() {
           className="dashboard-group-section"
         >
           <div style={styles.groupHeader} className="dashboard-group-header">
-            <p style={styles.groupEyebrow}>Resumo do período</p>
-            <h2 style={styles.groupTitle}>Resumo do período</h2>
-            <p style={styles.groupDescription}>Dados calculados para o período selecionado.</p>
+            <p style={styles.groupEyebrow}>Período selecionado</p>
+            <h2 style={styles.groupTitle}>Desempenho no período</h2>
+            <p style={styles.groupDescription}>Sessões, volume e sinais de bem-estar dos últimos {selectedPeriod} dias.</p>
             {(isTrainer || isCoach) && (
               <p style={styles.groupContextText}>Atleta em foco: {selectedAthleteLabel}</p>
             )}
@@ -880,7 +880,7 @@ export default function DashboardPage() {
               message="Não há estatísticas para o contexto selecionado agora."
               hint={isTrainer || isCoach
                 ? 'Selecione um atleta para visualizar o resumo do período.'
-                : 'Registre uma atividade para ver seus numeros consolidados.'}
+                : 'Registre uma atividade para ver seus números consolidados.'}
             />
           )}
 
@@ -918,9 +918,9 @@ export default function DashboardPage() {
           className="dashboard-group-section"
         >
           <div style={styles.groupHeader} className="dashboard-group-header">
-            <p style={styles.groupEyebrow}>Histórico geral da atleta</p>
-            <h2 style={styles.groupTitle}>Histórico geral da atleta</h2>
-            <p style={styles.groupDescription}>Dados baseados no histórico completo da atleta.</p>
+            <p style={styles.groupEyebrow}>Histórico</p>
+            <h2 style={styles.groupTitle}>Histórico do atleta</h2>
+            <p style={styles.groupDescription}>Todas as sessões registradas, sem filtro de período.</p>
             {(isTrainer || isCoach) && (
               <p style={styles.groupContextText}>Histórico completo de: {selectedAthleteLabel}</p>
             )}
@@ -931,8 +931,8 @@ export default function DashboardPage() {
             <section style={styles.lastActivitySection} className="dashboard-last-activity-section">
               <div style={styles.sectionHeader} className="dashboard-section-header">
                 <div style={styles.sectionHeadingBlock}>
-                  <h2 style={styles.sectionTitle} className="dashboard-section-title">Última sessão e sinais do atleta</h2>
-                  <p style={styles.sectionHelperText}>Exibe a sessão mais recente do histórico completo da atleta.</p>
+                  <h2 style={styles.sectionTitle} className="dashboard-section-title">Última sessão registrada</h2>
+                  <p style={styles.sectionHelperText}>Sinais do check-in e dados de desempenho do treino mais recente.</p>
                 </div>
               </div>
               <ReadinessCard session={latestSession} />
@@ -1016,11 +1016,11 @@ export default function DashboardPage() {
           ) : (
             <EmptyStateCard
               title="Sem histórico de sessões"
-              message="Nenhuma sessão foi encontrada para esta atleta até o momento."
+              message="Nenhuma sessão foi encontrada para este atleta até o momento."
               hint={
                 isAthlete
                   ? 'Inicie um novo Check-in para começar seu histórico.'
-                  : 'Registre um novo treino para começar o histórico desta atleta.'
+                  : 'Registre um novo treino para começar o histórico deste atleta.'
               }
               action={isAthlete ? (
                 <button
