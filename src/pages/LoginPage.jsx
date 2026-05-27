@@ -115,7 +115,7 @@ export default function LoginPage() {
                   {showPassword ? 'Ocultar' : 'Mostrar'}
                 </button>
               </div>
-              <a className="field-link" href="/reset-password">
+              <a className="field-link" href="/forgot-password">
                 Esqueceu sua senha?
               </a>
             </div>

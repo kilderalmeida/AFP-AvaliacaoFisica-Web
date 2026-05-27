@@ -1,35 +1,29 @@
-/**
- * Configuração de Rotas da Aplicação
- * Define rotas públicas e protegidas do AFP Web
- */
-
 import { useEffect, useState } from 'react';
 import { createBrowserRouter, Navigate, NavLink, Outlet, useLocation, useRouteError } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
+import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage.jsx';
 import DashboardPage from '../pages/DashboardPage.jsx';
 import CheckInPage from '../pages/CheckInPage.jsx';
 import CheckOutPage from '../pages/CheckOutPage.jsx';
 import AvaliacaoPAFPPage from '../pages/AvaliacaoPAFPPage.jsx';
 import ActivitiesListPage from '../pages/activities/ActivitiesListPage.tsx';
 import ActivityDetailPage from '../pages/activities/ActivityDetailPage.tsx';
+import AdminUsersPage from '../pages/admin/AdminUsersPage.jsx';
+import AdminUserFormPage from '../pages/admin/AdminUserFormPage.jsx';
+import TrainerAthletesPage from '../pages/trainer/TrainerAthletesPage.jsx';
 import { ProtectedRoute } from '../components/ProtectedRoute.jsx';
+import { RoleRoute } from '../components/layout/RoleRoute.jsx';
 
-/**
- * Configuração do router com React Router v6
- * 
- * Rotas Públicas:
- * - /login      - Página de login
- * 
- * Rotas Protegidas (requerem autenticação):
- * - /dashboard  - Dashboard principal
- * - /checkin    - Página de check-in
- * - /checkout   - Página de check-out
- */
 export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+    errorElement: <RouteErrorPage />,
+  },
+  {
+    path: '/forgot-password',
+    element: <ForgotPasswordPage />,
     errorElement: <RouteErrorPage />,
   },
   {
@@ -41,34 +35,46 @@ export const router = createBrowserRouter([
     element: <ProtectedAppLayout />,
     errorElement: <RouteErrorPage />,
     children: [
+      { path: '/dashboard', element: <DashboardPage /> },
+      { path: '/activities', element: <ActivitiesListPage /> },
+      { path: '/activities/:activityId', element: <ActivityDetailPage /> },
+      { path: '/checkin', element: <CheckInPage /> },
+      { path: '/checkout', element: <CheckOutPage /> },
+      { path: '/avaliacao-pafp', element: <AvaliacaoPAFPPage /> },
       {
-        path: '/dashboard',
-        element: <DashboardPage />,
+        path: '/admin/users',
+        element: (
+          <RoleRoute allowedRoles={['admin']} redirectTo="/dashboard">
+            <AdminUsersPage />
+          </RoleRoute>
+        ),
       },
       {
-        path: '/activities',
-        element: <ActivitiesListPage />,
+        path: '/admin/users/new',
+        element: (
+          <RoleRoute allowedRoles={['admin']} redirectTo="/dashboard">
+            <AdminUserFormPage />
+          </RoleRoute>
+        ),
       },
       {
-        path: '/activities/:activityId',
-        element: <ActivityDetailPage />,
+        path: '/admin/users/:userId',
+        element: (
+          <RoleRoute allowedRoles={['admin']} redirectTo="/dashboard">
+            <AdminUserFormPage />
+          </RoleRoute>
+        ),
       },
       {
-        path: '/checkin',
-        element: <CheckInPage />,
-      },
-      {
-        path: '/checkout',
-        element: <CheckOutPage />,
-      },
-      {
-        path: '/avaliacao-pafp',
-        element: <AvaliacaoPAFPPage />,
+        path: '/trainer/athletes',
+        element: (
+          <RoleRoute allowedRoles={['treinador', 'coach']} redirectTo="/dashboard">
+            <TrainerAthletesPage />
+          </RoleRoute>
+        ),
       },
     ],
   },
-
-  // Página não encontrada (404)
   {
     path: '*',
     element: <NotFoundPage />,
@@ -85,12 +91,16 @@ function ProtectedAppLayout() {
 }
 
 function AppShell() {
+  const { role } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
+
+  const isAdmin = role === 'admin';
+  const isTrainer = role === 'treinador' || role === 'coach';
 
   return (
     <div style={styles.shell}>
@@ -128,6 +138,8 @@ function AppShell() {
           <AppNavLink to="/checkin">Check-in</AppNavLink>
           <AppNavLink to="/checkout">Check-out</AppNavLink>
           <AppNavLink to="/avaliacao-pafp">Avaliação PAFP</AppNavLink>
+          {isTrainer && <AppNavLink to="/trainer/athletes">Meus atletas</AppNavLink>}
+          {isAdmin && <AppNavLink to="/admin/users">Usuários</AppNavLink>}
         </nav>
       </header>
 
@@ -169,14 +181,10 @@ function RootRedirect() {
 function sanitizePathname(pathname) {
   const value = String(pathname || '').trim();
   if (!value) return '/';
-
   const cleaned = value.replace(/[\.;:,!?]+$/, '');
   return cleaned || '/';
 }
 
-/**
- * Página 404 - Recurso não encontrado
- */
 function NotFoundPage() {
   const location = useLocation();
   const cleanedPathname = sanitizePathname(location.pathname);

@@ -2,16 +2,27 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: owner can read/write their own document.
-    // Trainer can read documents of their linked athletes (treinador_id == trainer uid).
-    // Admin SDK (Cloud Functions) bypasses these rules entirely.
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.papel == 'admin';
+    }
+
+    // Users: admin can read/write all; owner can read/update own document;
+    // trainer can read documents of their linked athletes; athlete can read
+    // their trainer's document.
     match /users/{userId} {
       allow read: if request.auth != null && (
+        isAdmin() ||
         request.auth.uid == userId ||
         resource.data.treinador_id == request.auth.uid ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.treinador_id == userId
       );
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow create: if isAdmin();
+      allow update: if request.auth != null && (
+        isAdmin() ||
+        request.auth.uid == userId
+      );
+      allow delete: if false;
     }
 
     // Activities: athlete can read/write their own; trainer can read activities
