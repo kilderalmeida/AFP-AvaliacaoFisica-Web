@@ -360,7 +360,7 @@ export async function getAthletesByCoach(coachUid) {
       query(collection(db, 'users'), where('coach_id', '==', coachUid))
     );
     const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    return users.filter((user) => normalizeUserRole(user) === 'atleta');
+    return users.filter((user) => normalizeUserRole(user) === 'athlete');
   } catch (error) {
     console.error('Erro ao buscar atletas do coach:', error);
     return [];
@@ -373,7 +373,7 @@ export async function getTrainersByCoach(coachUid) {
       query(collection(db, 'users'), where('coach_id', '==', coachUid))
     );
     const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    return users.filter((user) => normalizeUserRole(user) === 'treinador');
+    return users.filter((user) => normalizeUserRole(user) === 'trainer');
   } catch (error) {
     console.error('Erro ao buscar treinadores:', error);
     return [];
