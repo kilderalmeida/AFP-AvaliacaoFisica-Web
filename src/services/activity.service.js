@@ -44,9 +44,9 @@ async function createActivity(payload, createdByUid) {
     createdBy: createdByUid,
   });
 
-  // Propagate trainer-athlete link: when a real trainer (not the athlete themselves)
-  // creates an activity, persist treinador_id on the athlete's user document.
-  // This keeps trainer-athlete-context.service.js queries consistent.
+  // Dual-write treinador_id: required for the Firestore security rule
+  // `resource.data.treinador_id == request.auth.uid` on users/{userId} reads.
+  // athlete_links is the source of truth; this keeps the rule satisfiable.
   const { trainerUserId, athleteUserId } = payload;
   if (trainerUserId && athleteUserId && trainerUserId !== athleteUserId) {
     updateDoc(doc(db, 'users', athleteUserId), { treinador_id: trainerUserId }).catch(() => {
