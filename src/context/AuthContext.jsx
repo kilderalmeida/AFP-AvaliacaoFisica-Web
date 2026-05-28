@@ -4,8 +4,16 @@ import { getUserProfile } from '../services/userService.js';
 
 const AuthContext = createContext(null);
 
+// Maps legacy Portuguese field values and old names → new canonical role names.
+// Canonical set: platform_admin | account_admin | trainer | coach | athlete
 function normalizeRole(profileData) {
-  return String(profileData?.papel || '').normalize('NFC').trim().toLowerCase();
+  const raw = String(profileData?.papel || '').normalize('NFC').trim().toLowerCase();
+  if (raw === 'treinador' || raw === 'trainer') return 'trainer';
+  if (raw === 'atleta' || raw === 'athlete') return 'athlete';
+  if (raw === 'admin' || raw === 'platform_admin') return 'platform_admin';
+  if (raw === 'account_admin') return 'account_admin';
+  if (raw === 'coach') return 'coach';
+  return raw;
 }
 
 export function AuthProvider({ children }) {

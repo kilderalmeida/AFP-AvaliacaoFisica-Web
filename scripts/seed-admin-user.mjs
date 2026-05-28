@@ -109,14 +109,14 @@ const firestorePayload = {
   uid,
   displayName: DISPLAY_NAME,
   email: EMAIL,
-  papel: 'admin',          // campo canônico de role no AFP
+  papel: 'platform_admin', // campo canônico de role no AFP
   status: 'active',
   phone: '',
   birthDate: '',
   sex: '',
   gymId: '',
   treinador_id: null,
-  userTypes: ['admin'],
+  userTypes: ['platform_admin'],
   profileCompleted: true,
   updatedAt: now,
   schemaVersion: 2,

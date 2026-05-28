@@ -88,7 +88,7 @@ export default function CheckOutPage() {
     selectedAthleteId,
     ...trainerAthletes.map((athlete) => athlete.id),
   ]);
-  const isTrainerProfile = profileType === 'treinador';
+  const isTrainerProfile = profileType === 'trainer' || profileType === 'coach';
   const effectiveAthleteId = isTrainerProfile ? selectedAthleteId : user?.uid;
   const currentAthleteLabel = effectiveAthleteId
     ? userDisplayNames[effectiveAthleteId] || effectiveAthleteId
@@ -124,7 +124,7 @@ export default function CheckOutPage() {
         setProfileType(normalizedProfileType);
 
         let targetAthleteId = currentUser.uid;
-        if (normalizedProfileType === 'treinador') {
+        if (normalizedProfileType === 'trainer') {
           const userTypes = Array.isArray(profile?.userTypes) ? profile.userTypes : [];
           const includeSelfAthlete = userTypes.includes('athlete');
           const athletes = await listTrainerAthleteOptions(currentUser.uid, {

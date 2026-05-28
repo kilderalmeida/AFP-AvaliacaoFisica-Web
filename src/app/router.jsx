@@ -12,6 +12,7 @@ import ActivityDetailPage from '../pages/activities/ActivityDetailPage.tsx';
 import AdminUsersPage from '../pages/admin/AdminUsersPage.jsx';
 import AdminUserFormPage from '../pages/admin/AdminUserFormPage.jsx';
 import TrainerAthletesPage from '../pages/trainer/TrainerAthletesPage.jsx';
+import AccountAdminPage from '../pages/account/AccountAdminPage.jsx';
 import { ProtectedRoute } from '../components/ProtectedRoute.jsx';
 import { RoleRoute } from '../components/layout/RoleRoute.jsx';
 
@@ -44,7 +45,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/users',
         element: (
-          <RoleRoute allowedRoles={['admin']} redirectTo="/dashboard">
+          <RoleRoute allowedRoles={['platform_admin']} redirectTo="/dashboard">
             <AdminUsersPage />
           </RoleRoute>
         ),
@@ -52,7 +53,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/users/new',
         element: (
-          <RoleRoute allowedRoles={['admin']} redirectTo="/dashboard">
+          <RoleRoute allowedRoles={['platform_admin']} redirectTo="/dashboard">
             <AdminUserFormPage />
           </RoleRoute>
         ),
@@ -60,7 +61,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/users/:userId',
         element: (
-          <RoleRoute allowedRoles={['admin']} redirectTo="/dashboard">
+          <RoleRoute allowedRoles={['platform_admin']} redirectTo="/dashboard">
             <AdminUserFormPage />
           </RoleRoute>
         ),
@@ -68,8 +69,16 @@ export const router = createBrowserRouter([
       {
         path: '/trainer/athletes',
         element: (
-          <RoleRoute allowedRoles={['treinador', 'coach']} redirectTo="/dashboard">
+          <RoleRoute allowedRoles={['trainer', 'coach']} redirectTo="/dashboard">
             <TrainerAthletesPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: '/account',
+        element: (
+          <RoleRoute allowedRoles={['account_admin']} redirectTo="/dashboard">
+            <AccountAdminPage />
           </RoleRoute>
         ),
       },
@@ -99,8 +108,8 @@ function AppShell() {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  const isAdmin = role === 'admin';
-  const isTrainer = role === 'treinador' || role === 'coach';
+  const isAdmin = role === 'platform_admin' || role === 'account_admin';
+  const isTrainer = role === 'trainer' || role === 'coach';
 
   return (
     <div style={styles.shell}>
@@ -139,7 +148,8 @@ function AppShell() {
           <AppNavLink to="/checkout">Check-out</AppNavLink>
           <AppNavLink to="/avaliacao-pafp">Avaliação PAFP</AppNavLink>
           {isTrainer && <AppNavLink to="/trainer/athletes">Meus atletas</AppNavLink>}
-          {isAdmin && <AppNavLink to="/admin/users">Usuários</AppNavLink>}
+          {role === 'platform_admin' && <AppNavLink to="/admin/users">Usuários</AppNavLink>}
+          {role === 'account_admin' && <AppNavLink to="/account">Minha conta</AppNavLink>}
         </nav>
       </header>
 

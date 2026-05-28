@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { listUsers } from '../../services/userService.js';
+import { getTrainerActiveAthletes } from '../../services/athleteLinkService.js';
+import { getUserProfile } from '../../services/userService.js';
 
 export default function TrainerAthletesPage() {
   const { user } = useAuth();
@@ -16,10 +17,15 @@ export default function TrainerAthletesPage() {
       setLoading(true);
       setError(null);
       try {
-        // listUsers with no papel filter — then client-filter by treinador_id
-        // This avoids a composite index and uses the existing service contract.
-        const all = await listUsers({ papel: 'atleta' });
-        setAthletes(all.filter((a) => a.treinador_id === user.uid));
+        const links = await getTrainerActiveAthletes(user.uid);
+        const settled = await Promise.allSettled(
+          links.map((l) => getUserProfile(l.athleteId))
+        );
+        setAthletes(
+          settled
+            .filter((r) => r.status === 'fulfilled' && r.value)
+            .map((r) => r.value)
+        );
       } catch (err) {
         setError('Erro ao carregar atletas.');
         console.error(err);

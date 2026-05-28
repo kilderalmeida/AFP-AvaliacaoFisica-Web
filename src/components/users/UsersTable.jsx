@@ -1,8 +1,13 @@
 const PAPEL_LABELS = {
-  admin: 'Admin',
-  treinador: 'Treinador',
+  platform_admin: 'Admin plataforma',
+  account_admin: 'Admin de conta',
+  trainer: 'Treinador',
   coach: 'Coach',
-  atleta: 'Atleta',
+  athlete: 'Atleta',
+  // legacy values kept for documents not yet migrated
+  admin: 'Admin (legado)',
+  treinador: 'Treinador (legado)',
+  atleta: 'Atleta (legado)',
 };
 
 const STATUS_LABELS = {

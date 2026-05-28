@@ -43,6 +43,7 @@ export async function listUsers(filters = {}) {
   const constraints = [];
   if (filters.papel) constraints.push(where('papel', '==', filters.papel));
   if (filters.status) constraints.push(where('status', '==', filters.status));
+  if (filters.accountId) constraints.push(where('accountId', '==', filters.accountId));
   const q = constraints.length
     ? query(collection(db, 'users'), ...constraints)
     : collection(db, 'users');
@@ -57,8 +58,9 @@ export async function listUsers(filters = {}) {
 }
 
 export async function listTrainers() {
+  // Query both legacy Portuguese names and new canonical names
   const snap = await getDocs(
-    query(collection(db, 'users'), where('papel', 'in', ['treinador', 'coach']))
+    query(collection(db, 'users'), where('papel', 'in', ['treinador', 'trainer', 'coach']))
   );
   return snap.docs
     .map((d) => ({ uid: d.id, ...d.data() }))

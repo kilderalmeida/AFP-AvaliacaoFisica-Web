@@ -38,8 +38,8 @@ import { InputOutputTable } from '../components/dashboard/InputOutputTable';
 
 const PROFILE_TYPES = {
   COACH: 'coach',
-  TRAINER: 'treinador',
-  ATHLETE: 'atleta',
+  TRAINER: 'trainer',
+  ATHLETE: 'athlete',
 };
 
 const PERIOD_OPTIONS = [

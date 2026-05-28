@@ -1,9 +1,10 @@
 const PAPEL_OPTIONS = [
   { value: '', label: 'Todos os papéis' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'treinador', label: 'Treinador' },
+  { value: 'platform_admin', label: 'Admin da plataforma' },
+  { value: 'account_admin', label: 'Admin de conta' },
+  { value: 'trainer', label: 'Treinador' },
   { value: 'coach', label: 'Coach' },
-  { value: 'atleta', label: 'Atleta' },
+  { value: 'athlete', label: 'Atleta' },
 ];
 
 const STATUS_OPTIONS = [

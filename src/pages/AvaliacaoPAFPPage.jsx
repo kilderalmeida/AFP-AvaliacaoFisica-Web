@@ -107,7 +107,7 @@ export default function AvaliacaoPAFPPage() {
         const profileData = await getCurrentUserProfile(user.uid);
         const r = normalizeRole(profileData);
         setRole(r);
-        if (r === 'treinador' || r === 'coach') {
+        if (r === 'trainer' || r === 'coach') {
           const options = await listTrainerAthleteOptions(user.uid);
           setAthleteOptions(Array.isArray(options) ? options : []);
         }
@@ -120,7 +120,7 @@ export default function AvaliacaoPAFPPage() {
     loadProfile();
   }, [user?.uid]);
 
-  const isTrainer = role === 'treinador' || role === 'coach';
+  const isTrainer = role === 'trainer' || role === 'coach';
 
   // Derived UIDs — null while profile is loading to avoid spurious Firestore reads
   const assessmentAthleteId = loadingProfile ? null : (isTrainer ? selectedAthleteId : (user?.uid || null));

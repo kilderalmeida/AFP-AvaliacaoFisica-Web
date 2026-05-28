@@ -180,7 +180,7 @@ export default function CheckInPage() {
     selectedAthleteId,
     ...trainerAthletes.map((athlete) => athlete.id),
   ]);
-  const isTrainerProfile = profileType === 'treinador';
+  const isTrainerProfile = profileType === 'trainer' || profileType === 'coach';
   const effectiveAthleteId = isTrainerProfile ? selectedAthleteId : user?.uid;
   const currentAthleteLabel = effectiveAthleteId
     ? userDisplayNames[effectiveAthleteId] || effectiveAthleteId
@@ -301,7 +301,7 @@ export default function CheckInPage() {
         setProfileType(normalizedProfileType);
 
         let targetAthleteId = currentUser.uid;
-        if (normalizedProfileType === 'treinador') {
+        if (normalizedProfileType === 'trainer') {
           const userTypes = Array.isArray(profile?.userTypes) ? profile.userTypes : [];
           const includeSelfAthlete = userTypes.includes('athlete');
           const athletes = await listTrainerAthleteOptions(currentUser.uid, {
@@ -324,7 +324,7 @@ export default function CheckInPage() {
         }
 
         const eligibility = await resolveEligibility(targetAthleteId, {
-          asTrainer: normalizedProfileType === 'treinador',
+          asTrainer: normalizedProfileType === 'trainer',
           actorUserId: currentUser.uid,
         });
         setOpenActivity(eligibility.activity);

@@ -1,29 +1,30 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from './firebase/config.js';
+/**
+ * trainer-athlete-context.service.js
+ *
+ * Reads the list of athletes linked to the authenticated trainer via athlete_links
+ * and persists the trainer's selection in localStorage.
+ *
+ * Data source: athlete_links WHERE trainerId == trainerUid AND status == 'active'
+ * Requires:    composite index athlete_links(trainerId ASC, status ASC) — deployed.
+ */
+import { getTrainerActiveAthletes } from './athleteLinkService.js';
+import { getUserProfile } from './userService.js';
 
 const STORAGE_KEY_PREFIX = 'afp_trainer_selected_athlete_';
 
-function normalizeAthleteRole(userTypes) {
-  const types = Array.isArray(userTypes) ? userTypes : [];
-  return types.some((t) => {
-    const normalized = String(t || '').toLowerCase().trim();
-    return normalized === 'athlete' || normalized === 'atleta';
-  });
-}
-
 export async function listTrainerAthleteOptions(trainerUid, { includeSelfAthlete = false } = {}) {
   try {
-    const snap = await getDocs(
-      query(collection(db, 'users'), where('treinador_id', '==', trainerUid))
+    const links = await getTrainerActiveAthletes(trainerUid);
+    const settled = await Promise.allSettled(
+      links.map((link) => getUserProfile(link.athleteId))
     );
-    const athletes = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((u) => normalizeAthleteRole(u.userTypes));
-
-    return athletes.map((a) => ({
-      id: a.id,
-      displayName: a.displayName || a.nome || a.email || a.id,
-    }));
+    return settled
+      .filter((r) => r.status === 'fulfilled' && r.value)
+      .map((r) => r.value)
+      .map((a) => ({
+        id: a.uid,
+        displayName: a.displayName || a.nome || a.email || a.uid,
+      }));
   } catch (error) {
     console.error('Erro ao listar atletas do treinador:', error);
     return [];

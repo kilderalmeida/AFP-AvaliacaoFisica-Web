@@ -42,8 +42,14 @@ async function ensureOwnUserProfileIfMissing(uid) {
     schemaVersion: 2,
   };
 
-  await setDoc(doc(db, 'users', uid), profilePayload, { merge: false });
-  return true;
+  try {
+    await setDoc(doc(db, 'users', uid), profilePayload, { merge: false });
+    return true;
+  } catch {
+    // Self-provisioning is only allowed for platform_admin/account_admin.
+    // For regular users, silently return false — caller handles the missing doc.
+    return false;
+  }
 }
 
 function toDateObject(value) {
@@ -196,9 +202,12 @@ function normalizeRoleToken(value) {
   const token = String(value || '').normalize('NFC').trim().toLowerCase();
   if (!token) return '';
 
-  if (token === 'athlete' || token === 'atleta') return 'atleta';
-  if (token === 'trainer' || token === 'treinador') return 'treinador';
+  // Map legacy Portuguese names → new canonical English names
+  if (token === 'athlete' || token === 'atleta') return 'athlete';
+  if (token === 'trainer' || token === 'treinador') return 'trainer';
   if (token === 'coach') return 'coach';
+  if (token === 'admin' || token === 'platform_admin') return 'platform_admin';
+  if (token === 'account_admin') return 'account_admin';
 
   return '';
 }
@@ -223,8 +232,8 @@ function resolveCanonicalRole(userData) {
     }
 
     if (rolesFromUserTypes.includes('coach')) return 'coach';
-    if (rolesFromUserTypes.includes('treinador')) return 'treinador';
-    if (rolesFromUserTypes.includes('atleta')) return 'atleta';
+    if (rolesFromUserTypes.includes('trainer')) return 'trainer';
+    if (rolesFromUserTypes.includes('athlete')) return 'athlete';
   }
 
   return roleFromPapel;

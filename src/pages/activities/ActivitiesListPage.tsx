@@ -65,7 +65,7 @@ export default function ActivitiesListPage() {
     setLoadingActivities(true);
     setError(null);
     try {
-      if (role === 'treinador' || role === 'coach') {
+      if (role === 'trainer' || role === 'coach') {
         if (!athleteId) {
           setActivities([]);
           return;
@@ -98,7 +98,7 @@ export default function ActivitiesListPage() {
         setProfile(profileData);
         const role = normalizeRole(profileData);
 
-        if (role === 'treinador' || role === 'coach') {
+        if (role === 'trainer' || role === 'coach') {
           const options = await listTrainerAthleteOptions(user.uid);
           setAthletes(options);
           const initialId = resolveTrainerSelectedAthleteId(user.uid, options);
@@ -127,7 +127,7 @@ export default function ActivitiesListPage() {
   }
 
   const role = normalizeRole(profile);
-  const isTrainer = role === 'treinador' || role === 'coach';
+  const isTrainer = role === 'trainer' || role === 'coach';
 
   if (loading) {
     return (

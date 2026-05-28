@@ -2,31 +2,113 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAdmin() {
-      return request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.papel == 'admin';
+    // ── Role helpers ────────────────────────────────────────────────────────
+    // Reads the caller's own user document to determine their role.
+    // Firestore evaluates these per-request so they do not count as extra reads
+    // for collection queries — they are resolved once per security check.
+
+    function callerDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Users: admin can read/write all; owner can read/update own document;
-    // trainer can read documents of their linked athletes; athlete can read
-    // their trainer's document.
+    function callerRole() {
+      return callerDoc().papel;
+    }
+
+    function isPlatformAdmin() {
+      return request.auth != null && (
+        callerRole() == 'platform_admin' || callerRole() == 'admin'
+      );
+    }
+
+    function isAccountAdmin() {
+      return request.auth != null && (
+        callerRole() == 'account_admin'
+      );
+    }
+
+    function isTrainer() {
+      return request.auth != null && (
+        callerRole() == 'trainer' || callerRole() == 'treinador' || callerRole() == 'coach'
+      );
+    }
+
+    function callerAccountId() {
+      return callerDoc().accountId;
+    }
+
+    // ── users ────────────────────────────────────────────────────────────────
+    // platform_admin  : full read/write
+    // account_admin   : read/write users in own account
+    // owner           : read/update own document
+    // trainer         : read documents of linked athletes (treinador_id or athlete_links)
+    // athlete         : read their own trainer's document
     match /users/{userId} {
       allow read: if request.auth != null && (
-        isAdmin() ||
+        isPlatformAdmin() ||
+        (isAccountAdmin() && resource.data.accountId == callerAccountId()) ||
         request.auth.uid == userId ||
         resource.data.treinador_id == request.auth.uid ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.treinador_id == userId
       );
-      allow create: if isAdmin();
+      allow create: if isPlatformAdmin() || isAccountAdmin();
       allow update: if request.auth != null && (
-        isAdmin() ||
+        isPlatformAdmin() ||
+        (isAccountAdmin() && resource.data.accountId == callerAccountId()) ||
         request.auth.uid == userId
       );
       allow delete: if false;
     }
 
-    // Activities: athlete can read/write their own; trainer can read activities
-    // for athletes where they are the trainerUserId.
+    // ── accounts ─────────────────────────────────────────────────────────────
+    // platform_admin  : full access
+    // account_admin   : read/update own account document
+    // members         : read own account document
+    match /accounts/{accountId} {
+      allow read: if request.auth != null && (
+        isPlatformAdmin() ||
+        callerDoc().accountId == accountId
+      );
+      allow create: if isPlatformAdmin();
+      allow update: if isPlatformAdmin() || (
+        isAccountAdmin() && callerDoc().accountId == accountId
+      );
+      allow delete: if false;
+    }
+
+    // ── plans ─────────────────────────────────────────────────────────────────
+    // Read-only for any authenticated user; only platform_admin can write.
+    match /plans/{planId} {
+      allow read: if request.auth != null;
+      allow write: if isPlatformAdmin();
+    }
+
+    // ── athlete_links ────────────────────────────────────────────────────────
+    // trainer         : read/create/update their own links
+    // account_admin   : read/update links in own account
+    // platform_admin  : full access
+    // athlete         : read their own link(s)
+    match /athlete_links/{linkId} {
+      allow read: if request.auth != null && (
+        isPlatformAdmin() ||
+        resource.data.trainerId == request.auth.uid ||
+        resource.data.athleteId == request.auth.uid ||
+        (isAccountAdmin() && resource.data.accountId == callerAccountId())
+      );
+      allow create: if request.auth != null && (
+        isPlatformAdmin() ||
+        isAccountAdmin() ||
+        (isTrainer() && request.resource.data.trainerId == request.auth.uid)
+      );
+      allow update: if request.auth != null && (
+        isPlatformAdmin() ||
+        (isAccountAdmin() && resource.data.accountId == callerAccountId()) ||
+        resource.data.trainerId == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    // ── activities ────────────────────────────────────────────────────────────
     match /activities/{activityId} {
       allow read: if request.auth != null && (
         resource.data.athleteUserId == request.auth.uid ||
@@ -43,8 +125,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Assessments (PAFP): athlete can read/write their own; trainer can read
-    // assessments for athletes they evaluated.
+    // ── assessments ───────────────────────────────────────────────────────────
     match /assessments/{assessmentId} {
       allow read: if request.auth != null && (
         resource.data.athleteUserId == request.auth.uid ||
@@ -61,7 +142,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Academies: readable by authenticated users.
+    // ── academies ─────────────────────────────────────────────────────────────
     match /academies/{academyId} {
       allow read: if request.auth != null;
       allow write: if false;

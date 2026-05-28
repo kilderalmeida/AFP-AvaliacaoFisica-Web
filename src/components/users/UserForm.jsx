@@ -1,10 +1,11 @@
 import { useState } from 'react';
 
 const PAPEL_OPTIONS = [
-  { value: 'atleta', label: 'Atleta' },
-  { value: 'treinador', label: 'Treinador' },
+  { value: 'athlete', label: 'Atleta' },
+  { value: 'trainer', label: 'Treinador' },
   { value: 'coach', label: 'Coach' },
-  { value: 'admin', label: 'Admin' },
+  { value: 'account_admin', label: 'Admin de conta' },
+  { value: 'platform_admin', label: 'Admin da plataforma' },
 ];
 
 const STATUS_OPTIONS = [
@@ -16,7 +17,7 @@ const STATUS_OPTIONS = [
 const EMPTY_FORM = {
   email: '',
   displayName: '',
-  papel: 'atleta',
+  papel: 'athlete',
   status: 'invited',
   phone: '',
   birthDate: '',
@@ -89,7 +90,7 @@ export function UserForm({ initialValues = {}, mode = 'create', trainers = [], o
         </Field>
       </div>
 
-      {form.papel === 'atleta' && trainers.length > 0 && (
+      {form.papel === 'athlete' && trainers.length > 0 && (
         <Field label="Treinador responsável">
           <select style={inputStyle()} value={form.treinador_id || ''} onChange={(e) => set('treinador_id', e.target.value)} disabled={loading}>
             <option value="">Sem treinador</option>
