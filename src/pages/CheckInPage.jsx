@@ -301,7 +301,7 @@ export default function CheckInPage() {
         setProfileType(normalizedProfileType);
 
         let targetAthleteId = currentUser.uid;
-        if (normalizedProfileType === 'trainer') {
+        if (normalizedProfileType === 'trainer' || normalizedProfileType === 'coach') {
           const userTypes = Array.isArray(profile?.userTypes) ? profile.userTypes : [];
           const includeSelfAthlete = userTypes.includes('athlete');
           const athletes = await listTrainerAthleteOptions(currentUser.uid, {
@@ -324,7 +324,7 @@ export default function CheckInPage() {
         }
 
         const eligibility = await resolveEligibility(targetAthleteId, {
-          asTrainer: normalizedProfileType === 'trainer',
+          asTrainer: normalizedProfileType === 'trainer' || normalizedProfileType === 'coach',
           actorUserId: currentUser.uid,
         });
         setOpenActivity(eligibility.activity);

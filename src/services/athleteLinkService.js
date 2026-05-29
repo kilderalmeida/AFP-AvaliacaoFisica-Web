@@ -55,6 +55,9 @@ export async function createAthleteLink(athleteId, trainerId, accountId, created
     },
     { merge: true }
   );
+  // Dual-write treinador_id so the Firestore security rule
+  // `resource.data.treinador_id == request.auth.uid` on users/{userId} reads is satisfied.
+  updateDoc(doc(db, 'users', athleteId), { treinador_id: trainerId }).catch(() => {});
   return id;
 }
 
@@ -65,6 +68,8 @@ export async function deactivateAthleteLink(athleteId, trainerId, updatedByUid) 
     unlinkedAt: serverTimestamp(),
     updatedBy: updatedByUid,
   });
+  // Clear treinador_id so the trainer loses read access to this athlete's doc.
+  updateDoc(doc(db, 'users', athleteId), { treinador_id: null }).catch(() => {});
   return id;
 }
 
@@ -76,6 +81,8 @@ export async function reactivateAthleteLink(athleteId, trainerId, updatedByUid) 
     unlinkedAt: null,
     updatedBy: updatedByUid,
   });
+  // Restore treinador_id so the trainer can read this athlete's doc again.
+  updateDoc(doc(db, 'users', athleteId), { treinador_id: trainerId }).catch(() => {});
   return id;
 }
 

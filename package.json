@@ -15,6 +15,7 @@
     "test:trainer-dashboard:emulator": "firebase emulators:exec --only auth,firestore,functions \"node scripts/validate-trainer-dashboard-emulator.mjs\"",
     "test:trainer-activities:emulator": "firebase emulators:exec --only auth,firestore,functions \"node scripts/validate-trainer-activities-emulator.mjs\"",
     "test:trainer-reassignment:emulator": "firebase emulators:exec --only auth,firestore,functions \"node scripts/validate-trainer-reassignment-emulator.mjs\"",
+    "test:coach-flow:emulator": "firebase emulators:exec --only auth,firestore \"node scripts/seed-coach-emulator.mjs && node scripts/validate-coach-flow-emulator.mjs\"",
     "test:regression:emulator": "firebase emulators:exec --only auth,firestore,functions \"node scripts/validate-profile-bootstrap-emulator.mjs && node scripts/validate-trainer-flow-regression-emulator.mjs && node scripts/validate-trainer-dashboard-emulator.mjs && node scripts/validate-trainer-activities-emulator.mjs && node scripts/validate-trainer-reassignment-emulator.mjs\"",
     "seed:dev": "tsx scripts/seed-dev.ts",
     "seed:dashboard:filters": "tsx scripts/seed-dashboard-filter-windows.ts",

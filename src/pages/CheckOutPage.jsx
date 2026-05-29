@@ -124,7 +124,7 @@ export default function CheckOutPage() {
         setProfileType(normalizedProfileType);
 
         let targetAthleteId = currentUser.uid;
-        if (normalizedProfileType === 'trainer') {
+        if (normalizedProfileType === 'trainer' || normalizedProfileType === 'coach') {
           const userTypes = Array.isArray(profile?.userTypes) ? profile.userTypes : [];
           const includeSelfAthlete = userTypes.includes('athlete');
           const athletes = await listTrainerAthleteOptions(currentUser.uid, {

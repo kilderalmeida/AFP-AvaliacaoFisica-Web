@@ -6,7 +6,10 @@
       "Bash(findstr \":5173\")",
       "Bash(npm run *)",
       "PowerShell($r = Invoke-WebRequest -Uri \"http://localhost:5173/\" -UseBasicParsing -TimeoutSec 5; \"$\\($r.StatusCode\\) $\\($r.Content.Substring\\(0,[Math]::Min\\(200,$r.Content.Length\\)\\)\\)\")",
-      "PowerShell(cd \"c:\\\\Users\\\\kilder.almeida.silva\\\\OneDrive - Accenture\\\\kilder\\\\CURSO_REACT\\\\AFP-AvaliacaoFisica-Web\"; Get-ChildItem functions -Name | Where-Object { $_ -ne \"node_modules\" })"
+      "PowerShell(cd \"c:\\\\Users\\\\kilder.almeida.silva\\\\OneDrive - Accenture\\\\kilder\\\\CURSO_REACT\\\\AFP-AvaliacaoFisica-Web\"; Get-ChildItem functions -Name | Where-Object { $_ -ne \"node_modules\" })",
+      "Bash(xargs grep -l \"useTrainerAthleteContext\\\\|useCoachContext\\\\|CoachContext\\\\|TrainerContext\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\({scripts: p.scripts, devDeps: p.devDependencies, deps_rules: Object.keys\\(p.dependencies||{}\\).filter\\(k => k.includes\\('firebase'\\) || k.includes\\('test'\\) || k.includes\\('vitest'\\) || k.includes\\('jest'\\)\\)}, null, 2\\)\\)\")",
+      "Bash(node scripts/validate-coach-flow-emulator.mjs)"
     ]
   }
 }

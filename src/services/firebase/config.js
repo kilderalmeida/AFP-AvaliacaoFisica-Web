@@ -27,7 +27,7 @@ if (useFunctionsEmulator) {
   }
 
   try {
-    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectFirestoreEmulator(db, '127.0.0.1', 8081);
   } catch {
     // Ignore repeated initialization during HMR.
   }

@@ -357,7 +357,7 @@ export function convertToDate(value) {
 export async function getAthletesByCoach(coachUid) {
   try {
     const snap = await getDocs(
-      query(collection(db, 'users'), where('coach_id', '==', coachUid))
+      query(collection(db, 'users'), where('treinador_id', '==', coachUid))
     );
     const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     return users.filter((user) => normalizeUserRole(user) === 'athlete');
@@ -370,7 +370,7 @@ export async function getAthletesByCoach(coachUid) {
 export async function getTrainersByCoach(coachUid) {
   try {
     const snap = await getDocs(
-      query(collection(db, 'users'), where('coach_id', '==', coachUid))
+      query(collection(db, 'users'), where('treinador_id', '==', coachUid))
     );
     const users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     return users.filter((user) => normalizeUserRole(user) === 'trainer');

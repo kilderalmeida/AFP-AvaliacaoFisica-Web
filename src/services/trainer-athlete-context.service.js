@@ -15,18 +15,24 @@ const STORAGE_KEY_PREFIX = 'afp_trainer_selected_athlete_';
 export async function listTrainerAthleteOptions(trainerUid, { includeSelfAthlete = false } = {}) {
   try {
     const links = await getTrainerActiveAthletes(trainerUid);
+    console.debug('[listTrainerAthleteOptions] links:', links.length, 'for uid:', trainerUid);
     const settled = await Promise.allSettled(
       links.map((link) => getUserProfile(link.athleteId))
     );
-    return settled
+    const resolved = settled
       .filter((r) => r.status === 'fulfilled' && r.value)
-      .map((r) => r.value)
-      .map((a) => ({
-        id: a.uid,
-        displayName: a.displayName || a.nome || a.email || a.uid,
-      }));
+      .map((r) => r.value);
+    const rejected = settled.filter((r) => r.status === 'rejected');
+    if (rejected.length > 0) {
+      console.warn('[listTrainerAthleteOptions] getUserProfile falhou para', rejected.length, 'atletas:', rejected.map((r) => r.reason?.message || r.reason));
+    }
+    console.debug('[listTrainerAthleteOptions] atletas resolvidos:', resolved.length);
+    return resolved.map((a) => ({
+      id: a.uid,
+      displayName: a.displayName || a.nome || a.email || a.uid,
+    }));
   } catch (error) {
-    console.error('Erro ao listar atletas do treinador:', error);
+    console.error('[listTrainerAthleteOptions] erro crítico:', error);
     return [];
   }
 }

@@ -312,6 +312,17 @@ function getNextStepSummary({
     };
   }
 
+  if (isCoach) {
+    return {
+      title: 'Próximo passo recomendado',
+      text: 'Revise as sessões recentes e coordene com o treinador as prioridades da próxima semana.',
+      primaryLabel: 'Ver atividades',
+      primaryRoute: '/activities',
+      secondaryLabel: null,
+      secondaryRoute: null,
+    };
+  }
+
   return {
     title: 'Próximo passo recomendado',
     text: 'Use os filtros e o histórico para identificar o que acompanhar no próximo treino.',
@@ -406,19 +417,23 @@ export default function DashboardPage() {
     try {
       setLoadingFilters(true);
       setFiltersError(null);
-      const [trainersData, athletesByCoachData] = await Promise.all([
+      // athlete_links are queried with coachUid as trainerId — Firestore only allows
+      // reading links where resource.data.trainerId == auth.uid, so we must use the
+      // coach's own uid here (not a supervised trainer's uid).
+      const [trainersData, athletesData] = await Promise.all([
         getTrainersByCoach(coachUid),
-        getAthletesByCoach(coachUid),
+        listTrainerAthleteOptions(coachUid),
       ]);
       setTrainers(trainersData);
-      setFilteredAthletesForTrainer(athletesByCoachData || []);
-      
+      setFilteredAthletesForTrainer(athletesData || []);
+
       if (trainersData?.length > 0) {
-        const firstTrainerId = trainersData[0]?.id;
-        setSelectedTrainer(firstTrainerId);
-        if (firstTrainerId) {
-          await loadAthletesForTrainer(firstTrainerId);
-        }
+        setSelectedTrainer(trainersData[0]?.id);
+      }
+      const initialAthleteId = resolveTrainerSelectedAthleteId(coachUid, athletesData || []);
+      if (initialAthleteId) {
+        setSelectedAthlete(initialAthleteId);
+        setStoredTrainerSelectedAthleteId(coachUid, initialAthleteId);
       }
     } catch (error) {
       console.error('Error loading trainer filters:', error);
@@ -496,7 +511,7 @@ export default function DashboardPage() {
       let statsData;
       if (isTrainerOrCoach) {
         statsData = await getTrainerDashboardStatsByPeriod(
-          profileType === PROFILE_TYPES.COACH ? selectedTrainer : uid,
+          uid,
           athleteId,
           period
         );
@@ -525,11 +540,9 @@ export default function DashboardPage() {
   const handleTrainerChange = async (newTrainerId) => {
     setSelectedAthlete(null);
     setStats(null);
-    setFilteredAthletesForTrainer([]);
     setSelectedTrainer(newTrainerId);
-    if (newTrainerId) {
-      await loadAthletesForTrainer(newTrainerId);
-    }
+    // Coach cannot read athlete_links for another trainer's uid (Firestore rule requires
+    // resource.data.trainerId == auth.uid). Athlete list stays as coach's own links.
   };
 
   // Keep selected athlete valid when trainer athlete options refresh.
@@ -848,7 +861,7 @@ export default function DashboardPage() {
             <p style={styles.groupEyebrow}>Período selecionado</p>
             <h2 style={styles.groupTitle}>Desempenho no período</h2>
             <p style={styles.groupDescription}>Sessões, volume e sinais de bem-estar dos últimos {selectedPeriod} dias.</p>
-            {(isTrainer || isCoach) && (
+            {(isTrainer || isCoach) && selectedAthlete && (
               <p style={styles.groupContextText}>Atleta em foco: {selectedAthleteLabel}</p>
             )}
           </div>
@@ -900,19 +913,19 @@ export default function DashboardPage() {
                   ))}
               </div>
             </section>
-          ) : (
+          ) : stats ? (
             <EmptyStateCard
               title="Distribuição ainda vazia"
               message="Quando houver atividades no período, a distribuição por tipo aparece aqui."
             />
-          )}
+          ) : null}
 
           {/* Readiness analytics no período */}
           <WellBeingPeriodSummary sessions={periodSessions} periodDays={selectedPeriod} />
           <InputOutputTable sessions={periodSessions} periodDays={selectedPeriod} />
         </section>
 
-        <section
+        {(isAthlete || selectedAthlete) && <section
           key={`history-${selectedAthlete || userInfo?.uid || 'none'}`}
           style={{ ...styles.groupSection, ...styles.groupSectionHistory }}
           className="dashboard-group-section"
@@ -921,7 +934,7 @@ export default function DashboardPage() {
             <p style={styles.groupEyebrow}>Histórico</p>
             <h2 style={styles.groupTitle}>Histórico do atleta</h2>
             <p style={styles.groupDescription}>Todas as sessões registradas, sem filtro de período.</p>
-            {(isTrainer || isCoach) && (
+            {(isTrainer || isCoach) && selectedAthlete && (
               <p style={styles.groupContextText}>Histórico completo de: {selectedAthleteLabel}</p>
             )}
           </div>
@@ -1073,7 +1086,7 @@ export default function DashboardPage() {
               hint="Ajuste o período ou selecione outro atleta para continuar."
             />
           )}
-        </section>
+        </section>}
       </main>
     </div>
   );
