@@ -14,7 +14,7 @@ const STATUS_OPTIONS = [
   { value: 'inactive', label: 'Inativo' },
 ];
 
-export function UserFilters({ filters, onChange }) {
+export function UserFilters({ filters, onChange, disableStatus = false }) {
   return (
     <div style={styles.row}>
       <select
@@ -28,9 +28,11 @@ export function UserFilters({ filters, onChange }) {
       </select>
 
       <select
-        style={styles.select}
+        style={{ ...styles.select, ...(disableStatus ? styles.selectDisabled : {}) }}
         value={filters.status || ''}
-        onChange={(e) => onChange({ ...filters, status: e.target.value || undefined })}
+        onChange={(e) => !disableStatus && onChange({ ...filters, status: e.target.value || undefined })}
+        disabled={disableStatus}
+        title={disableStatus ? 'Filtro de status indisponível ao filtrar por conta' : undefined}
       >
         {STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -50,5 +52,9 @@ const styles = {
     color: '#334155',
     background: '#fff',
     cursor: 'pointer',
+  },
+  selectDisabled: {
+    opacity: 0.45,
+    cursor: 'not-allowed',
   },
 };

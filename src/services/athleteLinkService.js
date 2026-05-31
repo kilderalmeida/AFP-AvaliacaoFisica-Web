@@ -26,6 +26,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase/config.js';
 
@@ -146,13 +147,83 @@ export async function getAccountActiveAthleteLinks(accountId) {
   return snap.docs.map((d) => ({ linkId: d.id, ...d.data() }));
 }
 
+/**
+ * Transfers an athlete from one trainer to another in a single atomic batch.
+ * Writes: (1) deactivate old link, (2) create new link, (3) update treinador_id.
+ * All three succeed or all fail — no partial state.
+ * Same-account only: no limit check (net active count stays the same).
+ */
+export async function transferAthleteLink(
+  athleteId,
+  oldTrainerId,
+  newTrainerId,
+  newAccountId,
+  updatedByUid
+) {
+  const oldId = linkId(athleteId, oldTrainerId);
+  const newId = linkId(athleteId, newTrainerId);
+  const now = serverTimestamp();
+  const batch = writeBatch(db);
+
+  batch.update(doc(db, 'athlete_links', oldId), {
+    status: 'inactive',
+    unlinkedAt: now,
+    updatedBy: updatedByUid,
+  });
+
+  batch.set(doc(db, 'athlete_links', newId), {
+    athleteId,
+    trainerId: newTrainerId,
+    accountId: newAccountId,
+    status: 'active',
+    linkedAt: now,
+    unlinkedAt: null,
+    createdBy: updatedByUid,
+    updatedBy: updatedByUid,
+  });
+
+  batch.update(doc(db, 'users', athleteId), {
+    treinador_id: newTrainerId,
+    updatedBy: updatedByUid,
+    updatedAt: now,
+  });
+
+  await batch.commit();
+  return newId;
+}
+
+export async function getTrainerInactiveAthletes(trainerId) {
+  const snap = await getDocs(
+    query(
+      collection(db, 'athlete_links'),
+      where('trainerId', '==', trainerId),
+      where('status', '==', 'inactive')
+    )
+  );
+  return snap.docs.map((d) => ({ linkId: d.id, ...d.data() }));
+}
+
+export async function getAccountInactiveAthleteLinks(accountId) {
+  const snap = await getDocs(
+    query(
+      collection(db, 'athlete_links'),
+      where('accountId', '==', accountId),
+      where('status', '==', 'inactive')
+    )
+  );
+  return snap.docs.map((d) => ({ linkId: d.id, ...d.data() }));
+}
+
 export const athleteLinkService = {
   createAthleteLink,
   deactivateAthleteLink,
   reactivateAthleteLink,
+  transferAthleteLink,
   getTrainerActiveAthletes,
+  getTrainerInactiveAthletes,
   getActiveLinksByAthlete,
   getAthleteLink,
   getAccountActiveAthleteCount,
   getAccountActiveAthleteLinks,
+  getAccountInactiveAthleteLinks,
 };

@@ -11,8 +11,13 @@ import ActivitiesListPage from '../pages/activities/ActivitiesListPage.tsx';
 import ActivityDetailPage from '../pages/activities/ActivityDetailPage.tsx';
 import AdminUsersPage from '../pages/admin/AdminUsersPage.jsx';
 import AdminUserFormPage from '../pages/admin/AdminUserFormPage.jsx';
+import AdminAccountsPage from '../pages/admin/AdminAccountsPage.jsx';
+import AdminAccountFormPage from '../pages/admin/AdminAccountFormPage.jsx';
+import AdminPlansPage from '../pages/admin/AdminPlansPage.jsx';
+import AdminPlanFormPage from '../pages/admin/AdminPlanFormPage.jsx';
 import TrainerAthletesPage from '../pages/trainer/TrainerAthletesPage.jsx';
 import AccountAdminPage from '../pages/account/AccountAdminPage.jsx';
+import ProfileCompletionPage from '../pages/profile/ProfileCompletionPage.jsx';
 import { ProtectedRoute } from '../components/ProtectedRoute.jsx';
 import { RoleRoute } from '../components/layout/RoleRoute.jsx';
 
@@ -82,7 +87,60 @@ export const router = createBrowserRouter([
           </RoleRoute>
         ),
       },
+      {
+        path: '/admin/accounts',
+        element: (
+          <RoleRoute allowedRoles={['platform_admin']} redirectTo="/dashboard">
+            <AdminAccountsPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: '/admin/accounts/new',
+        element: (
+          <RoleRoute allowedRoles={['platform_admin']} redirectTo="/dashboard">
+            <AdminAccountFormPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: '/admin/accounts/:accountId/edit',
+        element: (
+          <RoleRoute allowedRoles={['platform_admin']} redirectTo="/dashboard">
+            <AdminAccountFormPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: '/admin/plans',
+        element: (
+          <RoleRoute allowedRoles={['platform_admin']} redirectTo="/dashboard">
+            <AdminPlansPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: '/admin/plans/new',
+        element: (
+          <RoleRoute allowedRoles={['platform_admin']} redirectTo="/dashboard">
+            <AdminPlanFormPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: '/admin/plans/:planId/edit',
+        element: (
+          <RoleRoute allowedRoles={['platform_admin']} redirectTo="/dashboard">
+            <AdminPlanFormPage />
+          </RoleRoute>
+        ),
+      },
     ],
+  },
+  {
+    path: '/perfil/completar',
+    element: <ProfileCompletionGuard />,
+    errorElement: <RouteErrorPage />,
   },
   {
     path: '*',
@@ -90,6 +148,27 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
   },
 ]);
+
+function ProfileCompletionGuard() {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <p>Carregando...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  // Already complete — no need to fill in the form again
+  if (profile && profile.profileCompleted !== false) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <ProfileCompletionPage />;
+}
 
 function ProtectedAppLayout() {
   return (
@@ -149,6 +228,8 @@ function AppShell() {
           <AppNavLink to="/avaliacao-pafp">Avaliação PAFP</AppNavLink>
           {isTrainer && <AppNavLink to="/trainer/athletes">Meus atletas</AppNavLink>}
           {role === 'platform_admin' && <AppNavLink to="/admin/users">Usuários</AppNavLink>}
+          {role === 'platform_admin' && <AppNavLink to="/admin/accounts">Contas</AppNavLink>}
+          {role === 'platform_admin' && <AppNavLink to="/admin/plans">Planos</AppNavLink>}
           {role === 'account_admin' && <AppNavLink to="/account">Minha conta</AppNavLink>}
         </nav>
       </header>

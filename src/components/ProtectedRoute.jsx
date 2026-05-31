@@ -7,7 +7,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -19,6 +19,13 @@ export function ProtectedRoute({ children }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  const isAdmin =
+    profile?.papel === 'platform_admin' || profile?.papel === 'account_admin';
+
+  if (profile && !isAdmin && profile.profileCompleted === false) {
+    return <Navigate to="/perfil/completar" replace />;
   }
 
   return children;

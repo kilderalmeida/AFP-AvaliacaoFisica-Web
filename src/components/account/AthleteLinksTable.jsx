@@ -1,8 +1,22 @@
-export function AthleteLinksTable({ links, unlinkingId, onDeactivate }) {
+export function AthleteLinksTable({
+  links,
+  unlinkingId,
+  onDeactivate,
+  mode = 'active',
+  reactivatingId,
+  onReactivate,
+  resendingEmail,
+  onResendInvite,
+  onTransfer,
+}) {
+  const isInactive = mode === 'inactive';
+
   if (links.length === 0) {
     return (
       <p style={styles.empty}>
-        Nenhum atleta vinculado. Use o botão "Vincular atleta" para adicionar.
+        {isInactive
+          ? 'Nenhum vínculo inativo.'
+          : 'Nenhum atleta vinculado. Use o botão "Vincular atleta" para adicionar.'}
       </p>
     );
   }
@@ -25,13 +39,42 @@ export function AthleteLinksTable({ links, unlinkingId, onDeactivate }) {
                 {link.athlete?.email || link.athleteId}
               </td>
               <td style={{ ...styles.td, textAlign: 'right' }}>
-                <button
-                  style={styles.btnDeactivate}
-                  onClick={() => onDeactivate(link)}
-                  disabled={unlinkingId === link.linkId}
-                >
-                  {unlinkingId === link.linkId ? 'Desvinculando…' : 'Desvincular'}
-                </button>
+                <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                  {!isInactive && link.athlete?.status === 'invited' && onResendInvite && (
+                    <button
+                      style={styles.btnResend}
+                      onClick={() => onResendInvite(link.athlete.email)}
+                      disabled={resendingEmail === link.athlete.email}
+                    >
+                      {resendingEmail === link.athlete.email ? 'Enviando…' : 'Reenviar convite'}
+                    </button>
+                  )}
+                  {!isInactive && onTransfer && (
+                    <button
+                      style={styles.btnTransfer}
+                      onClick={() => onTransfer(link)}
+                    >
+                      Transferir
+                    </button>
+                  )}
+                  {isInactive ? (
+                    <button
+                      style={styles.btnReactivate}
+                      onClick={() => onReactivate(link)}
+                      disabled={reactivatingId === link.linkId}
+                    >
+                      {reactivatingId === link.linkId ? 'Reativando…' : 'Reativar'}
+                    </button>
+                  ) : (
+                    <button
+                      style={styles.btnDeactivate}
+                      onClick={() => onDeactivate(link)}
+                      disabled={unlinkingId === link.linkId}
+                    >
+                      {unlinkingId === link.linkId ? 'Desvinculando…' : 'Desvincular'}
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
@@ -80,6 +123,38 @@ const styles = {
     fontSize: '13px',
     fontWeight: 600,
     cursor: 'pointer',
+  },
+  btnReactivate: {
+    padding: '6px 12px',
+    borderRadius: '8px',
+    border: '1px solid #86efac',
+    background: '#fff',
+    color: '#16a34a',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  btnResend: {
+    padding: '6px 12px',
+    borderRadius: '8px',
+    border: '1px solid #fde68a',
+    background: '#fff',
+    color: '#92400e',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  btnTransfer: {
+    padding: '6px 12px',
+    borderRadius: '8px',
+    border: '1px solid #93c5fd',
+    background: '#fff',
+    color: '#1d4ed8',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
   empty: {
     padding: '32px 0',

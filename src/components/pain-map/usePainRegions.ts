@@ -108,6 +108,10 @@ export const usePainRegions = () => {
     });
   }, []);
 
+  const resetRegions = useCallback((regions: Record<string, boolean>) => {
+    setSelected(regions);
+  }, []);
+
   const selectedRegionDetails = useMemo<SelectedRegionDetail[]>(
     () => buildPainMapPayload(selected),
     [selected],
@@ -116,6 +120,7 @@ export const usePainRegions = () => {
   return {
     selected,
     toggleRegion,
+    resetRegions,
     getRegionBySvgId,
     selectedRegionDetails,
     buildPainMapPayload: () => buildPainMapPayload(selected),

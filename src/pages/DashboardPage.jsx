@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase/config.js';
 import './DashboardPage.css';
@@ -335,6 +335,7 @@ function getNextStepSummary({
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
   // User/Auth
   const [userInfo, setUserInfo] = useState(null);
@@ -394,12 +395,13 @@ export default function DashboardPage() {
         setProfile(profileData);
 
         const profileType = normalizeProfileType(profileData);
+        const urlAthleteId = searchParams.get('athleteId') || null;
 
         // Initialize filters based on profile
         if (profileType === PROFILE_TYPES.COACH) {
-          await loadCoachFilters(user.uid);
+          await loadCoachFilters(user.uid, urlAthleteId);
         } else if (profileType === PROFILE_TYPES.TRAINER) {
-          await loadTrainerFilters(user.uid, profileData);
+          await loadTrainerFilters(user.uid, profileData, urlAthleteId);
         }
       } catch (error) {
         console.error('Error loading dashboard:', error);
@@ -413,7 +415,7 @@ export default function DashboardPage() {
   }, []);
 
   // Cascade loading: coach filters -> trainers
-  const loadCoachFilters = async (coachUid) => {
+  const loadCoachFilters = async (coachUid, urlAthleteId = null) => {
     try {
       setLoadingFilters(true);
       setFiltersError(null);
@@ -430,7 +432,12 @@ export default function DashboardPage() {
       if (trainersData?.length > 0) {
         setSelectedTrainer(trainersData[0]?.id);
       }
-      const initialAthleteId = resolveTrainerSelectedAthleteId(coachUid, athletesData || []);
+      // Prefer URL param if it belongs to this coach's athlete list; fall back to localStorage.
+      const list = athletesData || [];
+      const initialAthleteId =
+        (urlAthleteId && list.some((a) => a.id === urlAthleteId))
+          ? urlAthleteId
+          : resolveTrainerSelectedAthleteId(coachUid, list);
       if (initialAthleteId) {
         setSelectedAthlete(initialAthleteId);
         setStoredTrainerSelectedAthleteId(coachUid, initialAthleteId);
@@ -444,7 +451,7 @@ export default function DashboardPage() {
   };
 
   // Load athletes for trainer
-  const loadTrainerFilters = async (trainerUid, profileData = null) => {
+  const loadTrainerFilters = async (trainerUid, profileData = null, urlAthleteId = null) => {
     try {
       setLoadingFilters(true);
       setFiltersError(null);
@@ -452,10 +459,14 @@ export default function DashboardPage() {
       const userTypes = Array.isArray(profileData?.userTypes) ? profileData.userTypes : [];
       const includeSelfAthlete = userTypes.includes('athlete');
       const athletesData = await listTrainerAthleteOptions(trainerUid, { includeSelfAthlete });
-      
+
       setAthletes(athletesData);
-      
-      const initialAthleteId = resolveTrainerSelectedAthleteId(trainerUid, athletesData);
+
+      // Prefer URL param if it belongs to this trainer's athlete list; fall back to localStorage.
+      const initialAthleteId =
+        (urlAthleteId && athletesData.some((a) => a.id === urlAthleteId))
+          ? urlAthleteId
+          : resolveTrainerSelectedAthleteId(trainerUid, athletesData);
       setSelectedAthlete(initialAthleteId || null);
       setStoredTrainerSelectedAthleteId(trainerUid, initialAthleteId);
 

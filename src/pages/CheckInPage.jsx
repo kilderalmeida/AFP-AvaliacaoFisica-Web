@@ -152,11 +152,35 @@ function normalizeProfileType(profile) {
     .toLowerCase();
 }
 
+function draftKey(uid, athleteId) {
+  return `checkin_draft_${uid}_${athleteId}`;
+}
+
+function saveDraft(uid, athleteId, form, step) {
+  try {
+    localStorage.setItem(draftKey(uid, athleteId), JSON.stringify({ form, step }));
+  } catch { /* non-critical */ }
+}
+
+function loadDraft(uid, athleteId) {
+  try {
+    const raw = localStorage.getItem(draftKey(uid, athleteId));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function clearDraft(uid, athleteId) {
+  try {
+    localStorage.removeItem(draftKey(uid, athleteId));
+  } catch { /* non-critical */ }
+}
+
 export default function CheckInPage() {
   const navigate = useNavigate();
   const {
     selected,
     toggleRegion,
+    resetRegions,
     selectedRegionDetails,
   } = usePainRegions();
   const [user, setUser] = useState(null);
@@ -183,7 +207,9 @@ export default function CheckInPage() {
   const isTrainerProfile = profileType === 'trainer' || profileType === 'coach';
   const effectiveAthleteId = isTrainerProfile ? selectedAthleteId : user?.uid;
   const currentAthleteLabel = effectiveAthleteId
-    ? userDisplayNames[effectiveAthleteId] || effectiveAthleteId
+    ? trainerAthletes.find((a) => a.id === effectiveAthleteId)?.displayName
+      || userDisplayNames[effectiveAthleteId]
+      || effectiveAthleteId
     : '';
   const athleteContextLabel = isTrainerProfile ? 'Atleta selecionado' : 'Atleta';
   const hasTrainerAthleteOptions = trainerAthletes.length > 0;
@@ -306,6 +332,7 @@ export default function CheckInPage() {
           const includeSelfAthlete = userTypes.includes('athlete');
           const athletes = await listTrainerAthleteOptions(currentUser.uid, {
             includeSelfAthlete,
+            role: normalizedProfileType,
           });
           setTrainerAthletes(Array.isArray(athletes) ? athletes : []);
 
@@ -321,6 +348,15 @@ export default function CheckInPage() {
           setEligibilityContextState(ELIGIBILITY_CONTEXT.NO_HISTORY);
           setEligibilitySource('none');
           return;
+        }
+
+        const draft = loadDraft(currentUser.uid, targetAthleteId);
+        if (draft?.form && typeof draft.step === 'number') {
+          setForm(draft.form);
+          setStep(draft.step);
+          if (Array.isArray(draft.form.dorRegioes) && draft.form.dorRegioes.length > 0) {
+            resetRegions(Object.fromEntries(draft.form.dorRegioes.map((r) => [r.code, true])));
+          }
         }
 
         const eligibility = await resolveEligibility(targetAthleteId, {
@@ -351,6 +387,12 @@ export default function CheckInPage() {
       return () => clearTimeout(timer);
     }
   }, [success, navigate]);
+
+  useEffect(() => {
+    if (!user?.uid || !effectiveAthleteId || pageLoading || contextLoading || success) return;
+    saveDraft(user.uid, effectiveAthleteId, form, step);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, step]);
 
   useEffect(() => {
     if (!user || !isTrainerProfile || !selectedAthleteId) {
@@ -506,6 +548,7 @@ export default function CheckInPage() {
       });
       setSuccess(true);
       setStep(6);
+      clearDraft(user.uid, effectiveAthleteId);
     } catch (err) {
       console.error(err);
       setError(getFriendlyErrorMessage(err, 'Erro ao registrar Check-in. Tente novamente.'));
@@ -818,7 +861,7 @@ export default function CheckInPage() {
                     <option key={athlete.id} value={athlete.id}>
                       {formatTrainerAthleteOptionLabel(
                         athlete.id,
-                        userDisplayNames[athlete.id] || athlete.id,
+                        athlete.displayName || userDisplayNames[athlete.id] || athlete.id,
                         trainerAthletes
                       )}
                     </option>

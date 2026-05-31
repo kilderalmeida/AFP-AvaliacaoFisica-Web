@@ -4,34 +4,13 @@ import {
   getDoc,
   getDocs,
   query,
-  setDoc,
   updateDoc,
   where,
   serverTimestamp,
 } from 'firebase/firestore';
-import { initializeApp, getApps } from 'firebase/app';
-import {
-  createUserWithEmailAndPassword,
-  getAuth,
-  sendPasswordResetEmail,
-  signOut,
-} from 'firebase/auth';
-import { auth, db, firebaseConfig } from './firebase/config.js';
-
-// Secondary Firebase app so admin can create Auth accounts without signing out.
-function getSecondaryAuth() {
-  const name = 'afp-admin-secondary';
-  const existing = getApps().find((a) => a.name === name);
-  const app = existing ?? initializeApp(firebaseConfig, name);
-  return getAuth(app);
-}
-
-function generateTempPassword() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$';
-  let p = '';
-  for (let i = 0; i < 16; i++) p += chars[Math.floor(Math.random() * chars.length)];
-  return p;
-}
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { auth, db, functions } from './firebase/config.js';
 
 export async function getUserProfile(uid) {
   const snap = await getDoc(doc(db, 'users', uid));
@@ -70,41 +49,27 @@ export async function listTrainers() {
 }
 
 export async function createUser(
-  { email, displayName, papel, status = 'invited', phone = '', birthDate = '', sex = '', gymId = '', treinador_id = '' },
-  createdByUid
+  { email, displayName, papel, status = 'invited', phone = '', birthDate = '', sex = '', gymId = '', treinador_id = '', accountId = null },
+  _createdByUid
 ) {
-  const secondaryAuth = getSecondaryAuth();
-  const tempPassword = generateTempPassword();
-  const cred = await createUserWithEmailAndPassword(secondaryAuth, email, tempPassword);
-  const newUid = cred.user.uid;
+  const callFn = httpsCallable(functions, 'createUserCallable');
+  try {
+    const result = await callFn({ email, displayName, papel, status, phone, birthDate, sex, gymId, treinador_id, accountId });
+    const newUid = result.data.uid;
 
-  // Sign out of secondary app immediately — doesn't affect admin session
-  try { await signOut(secondaryAuth); } catch { /* non-critical */ }
+    // Send password-reset email so user sets their own password
+    try { await sendPasswordResetEmail(auth, email); } catch { /* non-critical */ }
 
-  const now = serverTimestamp();
-  await setDoc(doc(db, 'users', newUid), {
-    uid: newUid,
-    displayName: displayName.trim() || email.split('@')[0],
-    email,
-    papel,
-    status,
-    phone: phone || '',
-    birthDate: birthDate || '',
-    sex: sex || '',
-    gymId: gymId || '',
-    treinador_id: treinador_id || null,
-    userTypes: [papel],
-    profileCompleted: false,
-    createdBy: createdByUid,
-    createdAt: now,
-    updatedAt: now,
-    schemaVersion: 2,
-  });
-
-  // Send password-reset email so user sets their own password
-  try { await sendPasswordResetEmail(auth, email); } catch { /* non-critical */ }
-
-  return newUid;
+    return newUid;
+  } catch (err) {
+    // Map Cloud Function error back to the code the UI already handles
+    if (err.code === 'functions/already-exists') {
+      const mapped = new Error('Firebase: Error (auth/email-already-in-use).');
+      mapped.code = 'auth/email-already-in-use';
+      throw mapped;
+    }
+    throw err;
+  }
 }
 
 export async function updateUserProfile(uid, data, updatedByUid) {

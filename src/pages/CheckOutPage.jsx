@@ -91,7 +91,9 @@ export default function CheckOutPage() {
   const isTrainerProfile = profileType === 'trainer' || profileType === 'coach';
   const effectiveAthleteId = isTrainerProfile ? selectedAthleteId : user?.uid;
   const currentAthleteLabel = effectiveAthleteId
-    ? userDisplayNames[effectiveAthleteId] || effectiveAthleteId
+    ? trainerAthletes.find((a) => a.id === effectiveAthleteId)?.displayName
+      || userDisplayNames[effectiveAthleteId]
+      || effectiveAthleteId
     : '';
   const athleteContextLabel = isTrainerProfile ? 'Atleta selecionado' : 'Atleta';
   const hasTrainerAthleteOptions = trainerAthletes.length > 0;
@@ -129,6 +131,7 @@ export default function CheckOutPage() {
           const includeSelfAthlete = userTypes.includes('athlete');
           const athletes = await listTrainerAthleteOptions(currentUser.uid, {
             includeSelfAthlete,
+            role: normalizedProfileType,
           });
           setTrainerAthletes(Array.isArray(athletes) ? athletes : []);
 
@@ -163,11 +166,14 @@ export default function CheckOutPage() {
   useEffect(() => {
     if (success) {
       const timer = setTimeout(() => {
-        navigate('/dashboard');
+        const target = isTrainerProfile && selectedAthleteId
+          ? `/dashboard?athleteId=${selectedAthleteId}`
+          : '/dashboard';
+        navigate(target);
       }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [success, navigate]);
+  }, [success, navigate, isTrainerProfile, selectedAthleteId]);
 
   useEffect(() => {
     if (!user || !isTrainerProfile || !selectedAthleteId) {
@@ -204,6 +210,13 @@ export default function CheckOutPage() {
     if (!startedAt) return 0;
     return calculateDurationForDisplay(startedAt);
   }, [openActivity]);
+
+  useEffect(() => {
+    if (elapsedMinutes > 0 && form.duracaoMin === '') {
+      setForm((prev) => ({ ...prev, duracaoMin: String(elapsedMinutes) }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsedMinutes]);
 
   const totalSteps = 3;
   const isLastStep = step === totalSteps;
@@ -518,7 +531,11 @@ export default function CheckOutPage() {
                 onFocus={(e) => e.target.style.borderColor = '#1976d2'}
                 onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
               />
-              <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.9rem', color: '#78909c' }}>Tempo efetivo de atividade física</p>
+              <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.9rem', color: '#78909c' }}>
+                {elapsedMinutes > 0
+                  ? `Calculado automaticamente com base no check-in (${formatElapsed(elapsedMinutes)}). Você pode ajustar se necessário.`
+                  : 'Tempo efetivo de atividade física'}
+              </p>
             </div>
           </div>
         );
@@ -563,7 +580,7 @@ export default function CheckOutPage() {
                     <option key={athlete.id} value={athlete.id}>
                       {formatTrainerAthleteOptionLabel(
                         athlete.id,
-                        userDisplayNames[athlete.id] || athlete.id,
+                        athlete.displayName || userDisplayNames[athlete.id] || athlete.id,
                         trainerAthletes
                       )}
                     </option>

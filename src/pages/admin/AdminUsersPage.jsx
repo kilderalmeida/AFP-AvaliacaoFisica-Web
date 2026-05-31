@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { listUsers, toggleUserStatus } from '../../services/userService.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { UsersTable } from '../../components/users/UsersTable.jsx';
@@ -8,8 +8,15 @@ import { UserFilters } from '../../components/users/UserFilters.jsx';
 export default function AdminUsersPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Initialize from URL params — supports ?accountId=xxx&accountName=... from /admin/accounts
+  const [filters, setFilters] = useState(() => {
+    const accountId = searchParams.get('accountId');
+    return accountId ? { accountId } : {};
+  });
+  const [accountName] = useState(searchParams.get('accountName') || '');
   const [users, setUsers] = useState([]);
-  const [filters, setFilters] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [togglingUid, setTogglingUid] = useState(null);
@@ -56,7 +63,28 @@ export default function AdminUsersPage() {
         </button>
       </div>
 
-      <UserFilters filters={filters} onChange={setFilters} />
+      {filters.accountId && (
+        <div style={styles.accountBanner}>
+          <span style={styles.accountBannerText}>
+            Conta: <strong>{accountName || filters.accountId}</strong>
+          </span>
+          <button
+            style={styles.btnClearAccount}
+            onClick={() => setFilters((f) => { const { accountId: _, ...rest } = f; return rest; })}
+          >
+            ✕ Limpar
+          </button>
+          <button style={styles.btnBack} onClick={() => navigate('/admin/accounts')}>
+            ← Contas
+          </button>
+        </div>
+      )}
+
+      <UserFilters
+        filters={filters}
+        onChange={setFilters}
+        disableStatus={!!filters.accountId}
+      />
 
       {loading && <p style={styles.hint}>Carregando...</p>}
       {error && <p style={styles.errorText}>{error}</p>}
@@ -89,4 +117,41 @@ const styles = {
   },
   hint: { color: '#64748b', fontSize: '14px' },
   errorText: { color: '#dc2626', fontSize: '14px' },
+  accountBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
+    padding: '10px 14px',
+    borderRadius: '8px',
+    background: '#eff6ff',
+    border: '1px solid #bfdbfe',
+  },
+  accountBannerText: {
+    fontSize: '13px',
+    color: '#1e40af',
+    flex: 1,
+  },
+  btnClearAccount: {
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid #bfdbfe',
+    background: '#fff',
+    color: '#1e40af',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  btnBack: {
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid #bfdbfe',
+    background: '#fff',
+    color: '#1e40af',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
 };

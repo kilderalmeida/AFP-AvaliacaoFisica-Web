@@ -1,14 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { getTrainerActiveAthletes } from '../../services/athleteLinkService.js';
+import {
+  getTrainerActiveAthletes,
+  getTrainerInactiveAthletes,
+} from '../../services/athleteLinkService.js';
 import { getUserProfile } from '../../services/userService.js';
+import { activityService } from '../../services/activity.service.js';
+import { fetchCoachAthletes } from '../../services/coach-athletes-backend.service.js';
 
 export default function TrainerAthletesPage() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isCoach = role === 'coach';
   const navigate = useNavigate();
   const [athletes, setAthletes] = useState([]);
+  const [inactiveAthletes, setInactiveAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingInactive, setLoadingInactive] = useState(false);
+  const [inactiveLoaded, setInactiveLoaded] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -17,15 +27,59 @@ export default function TrainerAthletesPage() {
       setLoading(true);
       setError(null);
       try {
-        const links = await getTrainerActiveAthletes(user.uid);
-        const settled = await Promise.allSettled(
-          links.map((l) => getUserProfile(l.athleteId))
-        );
-        setAthletes(
-          settled
+        let athleteList;
+
+        if (isCoach) {
+          // Coach: fetch from Cloud Function (Admin SDK, bypasses Firestore rules)
+          const coachAthletes = await fetchCoachAthletes(user.uid);
+          const settled = await Promise.allSettled(
+            coachAthletes.map(async (a) => {
+              const activityResult = await Promise.allSettled([
+                activityService.listActivitiesByAthlete(a.uid, { limit: 1 }),
+              ]);
+              const lastActivity =
+                activityResult[0].status === 'fulfilled' ? activityResult[0].value?.[0] ?? null : null;
+              return {
+                uid: a.uid,
+                displayName: a.displayName,
+                email: a.email,
+                trainerUid: a.trainerUid,
+                trainerName: a.trainerName,
+                link: { athleteId: a.uid, trainerId: a.trainerUid, status: 'active' },
+                lastActivity,
+              };
+            })
+          );
+          athleteList = settled
+            .filter((r) => r.status === 'fulfilled' && r.value)
+            .map((r) => r.value);
+        } else {
+          // Trainer: existing path via Firestore client SDK
+          const links = await getTrainerActiveAthletes(user.uid);
+          const settled = await Promise.allSettled(
+            links.map(async (link) => {
+              const [profileResult, activityResult] = await Promise.allSettled([
+                getUserProfile(link.athleteId),
+                activityService.listActivitiesByAthlete(link.athleteId, { limit: 1 }),
+              ]);
+              const profile = profileResult.status === 'fulfilled' ? profileResult.value : null;
+              const lastActivity =
+                activityResult.status === 'fulfilled' ? activityResult.value?.[0] ?? null : null;
+              return profile ? { ...profile, link, lastActivity } : null;
+            })
+          );
+          athleteList = settled
             .filter((r) => r.status === 'fulfilled' && r.value)
             .map((r) => r.value)
-        );
+            .sort((a, b) =>
+              String(a.displayName || a.email || '').localeCompare(
+                String(b.displayName || b.email || ''),
+                'pt-BR'
+              )
+            );
+        }
+
+        setAthletes(athleteList);
       } catch (err) {
         setError('Erro ao carregar atletas.');
         console.error(err);
@@ -34,7 +88,43 @@ export default function TrainerAthletesPage() {
       }
     }
     load();
-  }, [user?.uid]);
+  }, [user?.uid, isCoach]);
+
+  async function handleToggleInactive() {
+    const next = !showInactive;
+    setShowInactive(next);
+    if (next && !inactiveLoaded) {
+      setLoadingInactive(true);
+      try {
+        const links = await getTrainerInactiveAthletes(user.uid);
+        const settled = await Promise.allSettled(
+          links.map(async (link) => {
+            const profile = await getUserProfile(link.athleteId);
+            return profile ? { ...profile, link } : null;
+          })
+        );
+        setInactiveAthletes(
+          settled
+            .filter((r) => r.status === 'fulfilled' && r.value)
+            .map((r) => r.value)
+            .sort((a, b) => {
+              const tA = a.link?.unlinkedAt?.seconds ?? 0;
+              const tB = b.link?.unlinkedAt?.seconds ?? 0;
+              return tB - tA;
+            })
+        );
+        setInactiveLoaded(true);
+      } catch (err) {
+        console.error('Erro ao carregar inativos:', err);
+      } finally {
+        setLoadingInactive(false);
+      }
+    }
+  }
+
+  const inactiveLabel = inactiveLoaded
+    ? `${showInactive ? 'Ocultar' : 'Mostrar'} inativos (${inactiveAthletes.length})`
+    : `${showInactive ? 'Ocultar' : 'Mostrar'} inativos`;
 
   return (
     <div style={styles.page}>
@@ -62,7 +152,30 @@ export default function TrainerAthletesPage() {
                 <div>
                   <p style={styles.name}>{a.displayName || '—'}</p>
                   <p style={styles.email}>{a.email}</p>
+                  {isCoach && a.trainerName && (
+                    <p style={styles.trainerLabel}>Treinador: {a.trainerName}</p>
+                  )}
                 </div>
+              </div>
+              <div style={styles.activitySummary}>
+                {a.lastActivity ? (
+                  <>
+                    <span style={styles.activityDate}>
+                      {formatDate(a.lastActivity.activityDate)}
+                    </span>
+                    <span
+                      style={
+                        a.lastActivity.status === 'open'
+                          ? styles.badgeOpen
+                          : styles.badgeDone
+                      }
+                    >
+                      {a.lastActivity.status === 'open' ? 'Em andamento' : 'Concluída'}
+                    </span>
+                  </>
+                ) : (
+                  <span style={styles.activityNone}>Sem atividades registradas</span>
+                )}
               </div>
               <div style={styles.cardActions}>
                 <button
@@ -82,8 +195,66 @@ export default function TrainerAthletesPage() {
           ))}
         </div>
       )}
+
+      {!loading && !error && !isCoach && (
+        <div style={styles.inactiveSection}>
+          <button style={styles.btnToggleInactive} onClick={handleToggleInactive}>
+            {inactiveLabel}
+          </button>
+
+          {showInactive && (
+            <>
+              {loadingInactive && <p style={styles.hint}>Carregando histórico...</p>}
+
+              {!loadingInactive && inactiveLoaded && inactiveAthletes.length === 0 && (
+                <p style={styles.hint}>Nenhum vínculo inativo encontrado.</p>
+              )}
+
+              {!loadingInactive && inactiveAthletes.length > 0 && (
+                <div style={styles.grid}>
+                  {inactiveAthletes.map((a) => (
+                    <div key={`${a.uid}-${a.link?.linkId}`} style={styles.cardInactive}>
+                      <div style={styles.cardTop}>
+                        <span style={{ ...styles.avatar, ...styles.avatarInactive }}>
+                          {(a.displayName || a.email || '?')[0].toUpperCase()}
+                        </span>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <p style={{ ...styles.name, color: '#94a3b8' }}>{a.displayName || '—'}</p>
+                            <span style={styles.inactiveBadge}>Inativo</span>
+                          </div>
+                          <p style={styles.email}>{a.email}</p>
+                        </div>
+                      </div>
+                      {a.link?.unlinkedAt && (
+                        <p style={styles.unlinkedDate}>
+                          Desvinculado em: {formatDate(a.link.unlinkedAt)}
+                        </p>
+                      )}
+                      <div style={styles.cardActions}>
+                        <button
+                          style={styles.btnAssess}
+                          onClick={() => navigate('/avaliacao-pafp')}
+                        >
+                          Avaliar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+function formatDate(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts.seconds * 1000);
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 const styles = {
@@ -103,6 +274,14 @@ const styles = {
     display: 'grid',
     gap: '14px',
   },
+  cardInactive: {
+    background: '#f8fafc',
+    borderRadius: '12px',
+    padding: '16px',
+    border: '1px solid #e2e8f0',
+    display: 'grid',
+    gap: '12px',
+  },
   cardTop: { display: 'flex', gap: '12px', alignItems: 'center' },
   avatar: {
     width: '40px',
@@ -117,9 +296,69 @@ const styles = {
     fontSize: '16px',
     flexShrink: 0,
   },
+  avatarInactive: {
+    background: '#f1f5f9',
+    color: '#94a3b8',
+  },
   name: { margin: 0, fontWeight: 600, fontSize: '14px', color: '#0f172a' },
   email: { margin: 0, fontSize: '12px', color: '#64748b' },
+  trainerLabel: { margin: 0, fontSize: '11px', color: '#94a3b8', marginTop: '2px' },
+  activitySummary: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '12px',
+    color: '#475569',
+  },
+  activityDate: { color: '#475569' },
+  badgeOpen: {
+    padding: '2px 8px',
+    borderRadius: '999px',
+    background: '#dbeafe',
+    color: '#1d4ed8',
+    fontSize: '11px',
+    fontWeight: 700,
+  },
+  badgeDone: {
+    padding: '2px 8px',
+    borderRadius: '999px',
+    background: '#dcfce7',
+    color: '#166534',
+    fontSize: '11px',
+    fontWeight: 700,
+  },
+  activityNone: { color: '#94a3b8', fontStyle: 'italic' },
   cardActions: { display: 'flex', gap: '8px' },
+  inactiveBadge: {
+    padding: '2px 8px',
+    borderRadius: '999px',
+    background: '#f1f5f9',
+    color: '#64748b',
+    fontSize: '11px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  unlinkedDate: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#94a3b8',
+  },
+  inactiveSection: {
+    display: 'grid',
+    gap: '16px',
+  },
+  btnToggleInactive: {
+    justifySelf: 'start',
+    padding: '7px 14px',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    background: '#fff',
+    color: '#475569',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
   btnDashboard: {
     flex: 1,
     padding: '7px',

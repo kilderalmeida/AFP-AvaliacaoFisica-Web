@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { login as authLogin, logout as authLogout, observeAuthState } from '../services/authService.js';
 import { getUserProfile } from '../services/userService.js';
 
@@ -42,6 +42,16 @@ export function AuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    if (!user) return;
+    try {
+      const p = await getUserProfile(user.uid);
+      setProfile(p);
+    } catch {
+      // keep existing profile on error
+    }
+  }, [user]);
+
   const value = useMemo(
     () => ({
       user,
@@ -51,8 +61,9 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(user),
       login: authLogin,
       logout: authLogout,
+      refreshProfile,
     }),
-    [user, profile, loading]
+    [user, profile, loading, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

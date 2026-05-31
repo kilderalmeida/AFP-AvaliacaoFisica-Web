@@ -1,9 +1,11 @@
 'use strict';
 
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const functions = require('firebase-functions');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const logger = require('firebase-functions/logger');
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -164,6 +166,60 @@ async function requireAuth(req, res, next) {
 }
 
 // ---------------------------------------------------------------------------
+// resolveTrainerAthleteAuth
+//
+// Shared authorization helper for trainerDashboardStats and trainerActivities.
+// Three authorization paths (in order):
+//   1. Direct link: athlete.treinador_id === callerUid
+//   2. Activity fallback: any activity links callerUid and athleteUid as trainer/athlete
+//   3. Coach hierarchy: caller is coach, athlete's active trainer has treinador_id === callerUid
+// Returns { authorized: true } or { authorized: false, status, error, code }.
+// ---------------------------------------------------------------------------
+
+async function resolveTrainerAthleteAuth(callerUid, athleteUid, athleteData) {
+  // Path 1: direct treinador_id link (trainer owns athlete directly)
+  if (athleteData?.treinador_id === callerUid) {
+    return { authorized: true };
+  }
+
+  // Path 2: activity fallback (historical link via shared activities)
+  const linkCheck = await db
+    .collection('activities')
+    .where('athleteUserId', '==', athleteUid)
+    .where('trainerUserId', '==', callerUid)
+    .limit(1)
+    .get();
+  if (!linkCheck.empty) {
+    return { authorized: true };
+  }
+
+  // Path 3: coach hierarchy — caller is a coach whose sub-trainer owns this athlete
+  const callerDoc = await db.collection('users').doc(callerUid).get();
+  if (callerDoc.exists && callerDoc.data().papel === 'coach') {
+    const athleteLinkSnap = await db
+      .collection('athlete_links')
+      .where('athleteId', '==', athleteUid)
+      .where('status', '==', 'active')
+      .limit(1)
+      .get();
+    if (!athleteLinkSnap.empty) {
+      const actualTrainerId = athleteLinkSnap.docs[0].data().trainerId;
+      const trainerDoc = await db.collection('users').doc(actualTrainerId).get();
+      if (trainerDoc.exists && trainerDoc.data().treinador_id === callerUid) {
+        return { authorized: true };
+      }
+    }
+  }
+
+  return {
+    authorized: false,
+    status: 403,
+    error: 'Trainer is not authorized to view this athlete',
+    code: 'TRAINER_ATHLETE_LINK_NOT_FOUND',
+  };
+}
+
+// ---------------------------------------------------------------------------
 // athleteDashboardStats
 //
 // GET ?athleteUid=<uid>&days=<7|30>
@@ -244,25 +300,12 @@ trainerApp.get('/', async (req, res) => {
   }
 
   try {
-    // Verify trainer-athlete link: athlete document must have treinador_id == trainerUid
     const athleteDoc = await db.collection('users').doc(athleteUid).get();
     const athleteData = athleteDoc.exists ? athleteDoc.data() : null;
-    const linked = athleteData?.treinador_id === trainerUid;
 
-    if (!linked) {
-      // Fallback: check if any activity in the system links them
-      const linkCheck = await db
-        .collection('activities')
-        .where('athleteUserId', '==', athleteUid)
-        .where('trainerUserId', '==', trainerUid)
-        .limit(1)
-        .get();
-      if (linkCheck.empty) {
-        return res.status(403).json({
-          error: 'Trainer is not authorized to view this athlete',
-          code: 'TRAINER_ATHLETE_LINK_NOT_FOUND',
-        });
-      }
+    const authResult = await resolveTrainerAthleteAuth(trainerUid, athleteUid, athleteData);
+    if (!authResult.authorized) {
+      return res.status(authResult.status).json({ error: authResult.error, code: authResult.code });
     }
 
     const snap = await db
@@ -329,21 +372,10 @@ trainerActivitiesApp.get('/', async (req, res) => {
   try {
     const athleteDoc = await db.collection('users').doc(athleteUid).get();
     const athleteData = athleteDoc.exists ? athleteDoc.data() : null;
-    const linked = athleteData?.treinador_id === trainerUid;
 
-    if (!linked) {
-      const linkCheck = await db
-        .collection('activities')
-        .where('athleteUserId', '==', athleteUid)
-        .where('trainerUserId', '==', trainerUid)
-        .limit(1)
-        .get();
-      if (linkCheck.empty) {
-        return res.status(403).json({
-          error: 'Trainer is not authorized to view this athlete',
-          code: 'TRAINER_ATHLETE_LINK_NOT_FOUND',
-        });
-      }
+    const authResult = await resolveTrainerAthleteAuth(trainerUid, athleteUid, athleteData);
+    if (!authResult.authorized) {
+      return res.status(authResult.status).json({ error: authResult.error, code: authResult.code });
     }
 
     const cutoff = cutoffDate(days);
@@ -376,3 +408,213 @@ trainerActivitiesApp.get('/', async (req, res) => {
 });
 
 exports.trainerActivities = functions.https.onRequest(trainerActivitiesApp);
+
+// ---------------------------------------------------------------------------
+// coachAthletes
+//
+// GET ?coachUid=<uid>
+// Auth: token.uid must equal coachUid; papel must be 'coach'
+// Returns active athletes from all trainers under the coach, deduplicated.
+// Response: { athletes: [{uid, displayName, email, trainerUid, trainerName}],
+//             total, coachUid }
+// ---------------------------------------------------------------------------
+
+const coachAthletesApp = express();
+coachAthletesApp.use(cors({ origin: true }));
+coachAthletesApp.use(requireAuth);
+
+coachAthletesApp.get('/', async (req, res) => {
+  const { coachUid } = req.query;
+
+  if (!coachUid) return res.status(400).json({ error: 'coachUid is required' });
+  if (req.decodedToken.uid !== coachUid) {
+    return res.status(403).json({ error: 'Token uid does not match coachUid' });
+  }
+
+  try {
+    const coachDoc = await db.collection('users').doc(coachUid).get();
+    if (!coachDoc.exists || coachDoc.data().papel !== 'coach') {
+      return res.status(403).json({ error: 'Caller is not a coach' });
+    }
+    const coachData = coachDoc.data();
+
+    // All trainers under this coach
+    const trainersSnap = await db
+      .collection('users')
+      .where('treinador_id', '==', coachUid)
+      .where('papel', '==', 'trainer')
+      .get();
+
+    // Map trainerUid -> trainerName (includes the coach itself for edge-case direct links)
+    const trainerMap = new Map();
+    trainerMap.set(coachUid, coachData.displayName || coachData.nome || coachData.email || coachUid);
+    trainersSnap.docs.forEach((doc) => {
+      const d = doc.data();
+      trainerMap.set(doc.id, d.displayName || d.nome || d.email || doc.id);
+    });
+
+    const trainerUids = [...trainerMap.keys()];
+
+    // Active links for every trainer in parallel
+    const linkSnaps = await Promise.all(
+      trainerUids.map((trainerUid) =>
+        db
+          .collection('athlete_links')
+          .where('trainerId', '==', trainerUid)
+          .where('status', '==', 'active')
+          .get()
+      )
+    );
+
+    // Deduplicate by athleteId — first trainer wins
+    const athleteToTrainer = new Map();
+    for (let i = 0; i < trainerUids.length; i++) {
+      const trainerUid = trainerUids[i];
+      const trainerName = trainerMap.get(trainerUid);
+      for (const doc of linkSnaps[i].docs) {
+        const athleteId = doc.data().athleteId;
+        if (!athleteToTrainer.has(athleteId)) {
+          athleteToTrainer.set(athleteId, { trainerUid, trainerName });
+        }
+      }
+    }
+
+    // Fetch athlete profiles
+    const athleteIds = [...athleteToTrainer.keys()];
+    const profileResults = await Promise.allSettled(
+      athleteIds.map((uid) => db.collection('users').doc(uid).get())
+    );
+
+    const athletes = [];
+    for (let i = 0; i < athleteIds.length; i++) {
+      const athleteId = athleteIds[i];
+      const result = profileResults[i];
+      if (result.status !== 'fulfilled' || !result.value.exists) continue;
+      const data = result.value.data();
+      const { trainerUid, trainerName } = athleteToTrainer.get(athleteId);
+      athletes.push({
+        uid: athleteId,
+        displayName: data.displayName || data.nome || data.email || athleteId,
+        email: data.email || '',
+        trainerUid,
+        trainerName,
+      });
+    }
+
+    athletes.sort((a, b) =>
+      (a.displayName || '').localeCompare(b.displayName || '', 'pt-BR')
+    );
+
+    return res.json({ athletes, total: athletes.length, coachUid });
+  } catch (err) {
+    logger.error('coachAthletes error', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+exports.coachAthletes = functions.https.onRequest(coachAthletesApp);
+
+// ---------------------------------------------------------------------------
+// createUserCallable
+//
+// Callable: creates a Firebase Auth account + Firestore user document.
+// Replaces the client-side secondary-app pattern so Auth user creation
+// never happens directly from the browser.
+//
+// Input:  { email, displayName, papel, status, phone, birthDate, sex,
+//           gymId, treinador_id, accountId }
+// Output: { uid: string }
+// Auth:   caller must be platform_admin or account_admin
+// ---------------------------------------------------------------------------
+
+// v2 onCall: request.auth is correctly populated in Gen 2 (Cloud Run).
+// The v1 functions.https.onCall context.auth was a Gen 1 runtime feature and
+// is NOT injected in the Gen 2 environment used by firebase-functions v5+.
+exports.createUserCallable = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Authentication required.');
+  }
+
+  const callerUid = request.auth.uid;
+
+  const callerSnap = await db.collection('users').doc(callerUid).get();
+  if (!callerSnap.exists) {
+    throw new HttpsError('permission-denied', 'Caller profile not found.');
+  }
+  const callerRole = callerSnap.data().papel;
+  const callerAccountId = callerSnap.data().accountId;
+
+  if (callerRole !== 'platform_admin' && callerRole !== 'account_admin') {
+    throw new HttpsError('permission-denied', 'Insufficient permissions to create users.');
+  }
+
+  const {
+    email,
+    displayName = '',
+    papel,
+    status = 'invited',
+    phone = '',
+    birthDate = '',
+    sex = '',
+    gymId = '',
+    treinador_id = '',
+    accountId = null,
+  } = request.data || {};
+
+  if (!email || !papel) {
+    throw new HttpsError('invalid-argument', 'email and papel are required.');
+  }
+
+  if (callerRole === 'account_admin') {
+    if (!accountId || callerAccountId !== accountId) {
+      throw new HttpsError('permission-denied', 'account_admin can only create users in their own account.');
+    }
+    if (papel === 'platform_admin') {
+      throw new HttpsError('permission-denied', 'account_admin cannot create platform_admin users.');
+    }
+  }
+
+  // Temp password — user sets their own password via the reset-email flow
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$';
+  let tempPassword = '';
+  for (let i = 0; i < 16; i++) tempPassword += chars[Math.floor(Math.random() * chars.length)];
+
+  let newUid;
+  try {
+    const userRecord = await firebaseAuth.createUser({
+      email,
+      password: tempPassword,
+      displayName: (displayName || '').trim() || email.split('@')[0],
+    });
+    newUid = userRecord.uid;
+  } catch (err) {
+    if (err.code === 'auth/email-already-exists') {
+      throw new HttpsError('already-exists', 'auth/email-already-in-use');
+    }
+    logger.error('createUserCallable: createUser failed', err);
+    throw new HttpsError('internal', err.message || 'Failed to create Auth user.');
+  }
+
+  const now = FieldValue.serverTimestamp();
+  await db.collection('users').doc(newUid).set({
+    uid: newUid,
+    displayName: (displayName || '').trim() || email.split('@')[0],
+    email,
+    papel,
+    status,
+    phone: phone || '',
+    birthDate: birthDate || '',
+    sex: sex || '',
+    gymId: gymId || '',
+    treinador_id: treinador_id || null,
+    accountId: accountId || null,
+    userTypes: [papel],
+    profileCompleted: false,
+    createdBy: callerUid,
+    createdAt: now,
+    updatedAt: now,
+    schemaVersion: 2,
+  });
+
+  return { uid: newUid };
+});

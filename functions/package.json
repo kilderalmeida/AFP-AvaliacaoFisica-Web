@@ -1,7 +1,7 @@
 {
   "name": "afp-functions",
   "version": "1.0.0",
-  "description": "AFP Cloud Functions — athleteDashboardStats, trainerDashboardStats, trainerActivities",
+  "description": "AFP Cloud Functions — athleteDashboardStats, trainerDashboardStats, trainerActivities, createUserCallable",
   "main": "index.js",
   "engines": {
     "node": "22"

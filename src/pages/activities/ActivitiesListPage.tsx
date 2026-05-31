@@ -60,8 +60,9 @@ export default function ActivitiesListPage() {
   const [athletes, setAthletes] = useState<AthleteOption[]>([]);
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
   const [loadingActivities, setLoadingActivities] = useState(false);
+  const [days, setDays] = useState<number>(7);
 
-  async function loadActivities(role: string, uid: string, athleteId?: string | null) {
+  async function loadActivities(role: string, uid: string, daysParam: number, athleteId?: string | null) {
     setLoadingActivities(true);
     setError(null);
     try {
@@ -70,11 +71,10 @@ export default function ActivitiesListPage() {
           setActivities([]);
           return;
         }
-        const stats = await getTrainerDashboardStatsByPeriod(uid, athleteId, 7);
+        const stats = await getTrainerDashboardStatsByPeriod(uid, athleteId, daysParam);
         setActivities(Array.isArray(stats?.recentActivities) ? stats.recentActivities : []);
       } else {
-        // atleta: usa o mesmo endpoint do dashboard — remove leitura direta do Firestore
-        const stats = await getAthleteDashboardStats(uid, 7);
+        const stats = await getAthleteDashboardStats(uid, daysParam);
         setActivities(Array.isArray(stats?.recentActivities) ? stats.recentActivities : []);
       }
     } catch (err) {
@@ -99,13 +99,13 @@ export default function ActivitiesListPage() {
         const role = normalizeRole(profileData);
 
         if (role === 'trainer' || role === 'coach') {
-          const options = await listTrainerAthleteOptions(user.uid);
+          const options = await listTrainerAthleteOptions(user.uid, { role });
           setAthletes(options);
           const initialId = resolveTrainerSelectedAthleteId(user.uid, options);
           setSelectedAthlete(initialId);
-          await loadActivities(role, user.uid, initialId);
+          await loadActivities(role, user.uid, 7, initialId);
         } else {
-          await loadActivities(role, user.uid);
+          await loadActivities(role, user.uid, 7);
         }
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Erro ao inicializar página'));
@@ -118,12 +118,19 @@ export default function ActivitiesListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!userInfo || loading) return;
+    const currentRole = normalizeRole(profile);
+    void loadActivities(currentRole, userInfo.uid, days, selectedAthlete);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days]);
+
   async function handleAthleteChange(athleteId: string) {
     if (!userInfo) return;
     const role = normalizeRole(profile);
     setSelectedAthlete(athleteId);
     setStoredTrainerSelectedAthleteId(userInfo.uid, athleteId);
-    await loadActivities(role, userInfo.uid, athleteId);
+    await loadActivities(role, userInfo.uid, days, athleteId);
   }
 
   const role = normalizeRole(profile);
@@ -146,6 +153,21 @@ export default function ActivitiesListPage() {
         <p style={styles.eyebrow}>Histórico</p>
         <h1 style={styles.title}>Atividades</h1>
       </header>
+
+      <div style={styles.filterBar}>
+        <label style={styles.filterLabel}>Período</label>
+        <select
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          style={styles.filterSelect}
+          disabled={loadingActivities}
+        >
+          <option value={7}>7 dias</option>
+          <option value={30}>30 dias</option>
+          <option value={90}>90 dias</option>
+          <option value={180}>180 dias</option>
+        </select>
+      </div>
 
       {isTrainer && athletes.length > 0 && (
         <div style={styles.filterBar}>
@@ -175,7 +197,7 @@ export default function ActivitiesListPage() {
           message={error.message}
           onAction={() => {
             if (!userInfo) return;
-            void loadActivities(role, userInfo.uid, selectedAthlete);
+            void loadActivities(role, userInfo.uid, days, selectedAthlete);
           }}
         />
       )}
