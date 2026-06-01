@@ -39,20 +39,11 @@ export function AccountSummaryCard({ account, plan, limitInfo, upgradeUrl }) {
 
   return (
     <div style={{ ...styles.card, ...(atLimit ? styles.cardAtLimit : {}) }}>
-      <div style={styles.grid}>
-        <Field label="Nome da conta" value={account.name} />
-        <Field label="Tipo" value={TYPE_LABELS[account.type] || account.type} />
-        <Field label="Plano" value={plan?.name || account.planId} />
-        <div>
-          <p style={styles.label}>Atletas ativos</p>
-          <p style={{ ...styles.value, color: atLimit ? '#dc2626' : '#0f172a' }}>
-            {count} de {limit}
-            {atLimit && <span style={styles.limitTag}> limite atingido</span>}
-          </p>
-        </div>
-      </div>
-
-      <div>
+      <div style={styles.usageBlock}>
+        <p style={styles.label}>Atletas ativos</p>
+        <p style={{ ...styles.usageNumber, color: atLimit ? '#dc2626' : '#0f172a' }}>
+          {count} <span style={styles.usageLimit}>/ {limit}</span>
+        </p>
         <div style={styles.barTrack}>
           <div
             style={{
@@ -62,11 +53,19 @@ export function AccountSummaryCard({ account, plan, limitInfo, upgradeUrl }) {
             }}
           />
         </div>
-        <p style={styles.barLabel}>
+        <p style={{ ...styles.statusLine, color: atLimit ? '#dc2626' : nearLimit ? '#92400e' : '#64748b' }}>
           {atLimit
-            ? `${count} de ${limit} — limite atingido`
-            : `${count} de ${limit} — ${limit - count} vaga${limit - count !== 1 ? 's' : ''} restante${limit - count !== 1 ? 's' : ''}`}
+            ? 'Limite atingido.'
+            : nearLimit
+              ? `Faltam ${limit - count} vaga${limit - count !== 1 ? 's' : ''}.`
+              : `${limit - count} vaga${limit - count !== 1 ? 's' : ''} restante${limit - count !== 1 ? 's' : ''}.`}
         </p>
+      </div>
+
+      <div style={styles.grid}>
+        <Field label="Nome da conta" value={account.name} />
+        <Field label="Tipo" value={TYPE_LABELS[account.type] || account.type} />
+        <Field label="Plano" value={plan?.name || account.planId} />
       </div>
 
       {atLimit && (
@@ -148,30 +147,36 @@ const styles = {
     fontWeight: 600,
     color: '#0f172a',
   },
-  limitTag: {
-    marginLeft: '6px',
-    fontSize: '11px',
+  usageBlock: {
+    display: 'grid',
+    gap: '6px',
+  },
+  usageNumber: {
+    margin: 0,
+    fontSize: '28px',
     fontWeight: 700,
-    color: '#dc2626',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
+    lineHeight: 1.1,
+  },
+  usageLimit: {
+    fontSize: '18px',
+    fontWeight: 600,
+    color: '#64748b',
+  },
+  statusLine: {
+    margin: 0,
+    fontSize: '13px',
+    fontWeight: 600,
   },
   barTrack: {
     height: '8px',
     borderRadius: '4px',
     background: '#e2e8f0',
     overflow: 'hidden',
-    marginBottom: '6px',
   },
   barFill: {
     height: '100%',
     borderRadius: '4px',
     transition: 'width 0.3s ease',
-  },
-  barLabel: {
-    margin: 0,
-    fontSize: '12px',
-    color: '#64748b',
   },
   limitBanner: {
     padding: '14px 16px',

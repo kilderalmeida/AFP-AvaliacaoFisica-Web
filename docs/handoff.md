@@ -1,6 +1,29 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 a H-32 concluídas; H-33 é a próxima)_
+_Atualizado em: 2026-06-01 (Wave 7 COMPLETA — EPIC-9 Polimento de UX; H-26 a H-33 todas concluídas)_
+
+---
+
+## H-33 — Indicador de uso de plano mais legível (Wave 7 — concluída)
+
+**Recorte fechado com o usuário:** presentation-only · promover o uso a um bloco de destaque no topo do card · tirar "Atletas ativos" do grid · remover a duplicação do "X de Y" · grid fica Nome/Tipo/Plano · near-limit ganha pista textual âmbar · sem mudar cálculo/dados/regras/comportamento.
+
+**Arquivo:** `src/components/account/AccountSummaryCard.jsx`
+
+**O que foi feito:**
+- Novo `usageBlock` no topo do card: label "Atletas ativos" + número destacado `count / limit` (28px; `/limit` em cinza menor) + a barra existente + uma linha de status única.
+- Removido o `Field` "Atletas ativos" do grid; grid agora com Nome/Tipo/Plano. Eliminada a duplicação do "X de Y" (antes no grid e no rótulo da barra).
+- Linha de status (substitui o antigo `barLabel`): `atLimit` → "Limite atingido." (vermelho `#dc2626`); `nearLimit` → "Faltam X vaga(s)." (âmbar `#92400e`); normal → "X vaga(s) restante(s)." (neutro `#64748b`). Pluralização preservada.
+- Estilos: adicionados `usageBlock`/`usageNumber`/`usageLimit`/`statusLine`; removidos órfãos `limitTag` e `barLabel`; `barTrack.marginBottom` removido (espaçamento agora via `gap` do bloco).
+- `limitBanner` (CTA de upgrade) e lista de `features` **inalterados**.
+
+**Limites respeitados:** reusa as variáveis já calculadas (`count`/`limit`/`pct`/`atLimit`/`nearLimit`) — nenhuma lógica nova; sem mudança de comportamento/regras/dados.
+
+**Sem mudanças em:** `canAddAthlete`, serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados.
+
+**Validado:** `npm run build` ✅ 107 módulos, 0 erros.
+
+**Estado da Wave 7:** **completa** — H-26 a H-33 todas done. Possível pendência cosmética opcional registrada: reindentação do sub-bloco da `<table>` na `AthleteLinksTable` (deixada para um commit de style separado, se desejado).
 
 ---
 

@@ -427,6 +427,34 @@ Decisões confirmadas com o usuário:
 
 **Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo, lógica de erro (só o meio de exibição: `alert` → banner). `confirm()` mantido.
 
+## Recorte final fechado — H-33 (2026-06-01)
+
+Decisões confirmadas com o usuário:
+
+| Tópico | Decisão |
+|---|---|
+| Hierarquia | **Promover o uso a um bloco de destaque no topo** do `AccountSummaryCard` (número "X / Y" + barra + linha de status); **tirar "Atletas ativos" do grid**; grid fica com Nome/Tipo/Plano; **remover a duplicação** do "X de Y" |
+| Near-limit (≥80%) | **Pista textual âmbar** ("Faltam X vagas.") além da barra âmbar; reusa a paleta âmbar existente |
+| Natureza | **Presentation-only** — sem mudar cálculo, dados, regras ou comportamento |
+
+**Mudanças previstas (`AccountSummaryCard.jsx`, só apresentação):**
+- Novo bloco de uso no topo do card: label "Atletas ativos", número destacado `X / Y`, a barra existente, e uma linha de status única.
+- Remoção do `Field` "Atletas ativos" do grid (linhas 46–52) — o grid passa a ter Nome/Tipo/Plano.
+- Linha de status única (substitui o `barLabel` duplicado): `atLimit` → "Limite atingido" (vermelho); `nearLimit` → "Faltam X vaga(s)." (âmbar `#92400e`); caso normal → "X vaga(s) restante(s)." (neutro). Pluralização mantida.
+- `limitBanner` (CTA de upgrade) e lista de `features` **inalterados**.
+- Reusa as variáveis já calculadas (`count`, `limit`, `pct`, `atLimit`, `nearLimit`) — nenhuma lógica nova.
+
+**Sem mudanças previstas em:** `canAddAthlete`, lógica/dados do `AccountSummaryCard`, serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo.
+
+**H-33 concluída (2026-06-01) — Wave 7 completa:** `AccountSummaryCard` reorganizado (presentation-only).
+- Novo bloco de uso no topo do card: label "Atletas ativos" + número destacado `X / Y` (28px) + barra existente + linha de status única.
+- `Field` "Atletas ativos" removido do grid; grid agora com Nome/Tipo/Plano. Duplicação do "X de Y" eliminada.
+- Linha de status: `atLimit` → "Limite atingido." (vermelho); `nearLimit` → "Faltam X vaga(s)." (âmbar `#92400e`); normal → "X vaga(s) restante(s)." (neutro).
+- `limitBanner`/CTA e lista de `features` inalterados. Estilos `limitTag`/`barLabel` removidos; `barTrack.marginBottom` retirado (espaçamento via `gap`).
+- Reusa `count/limit/pct/atLimit/nearLimit` — nenhuma lógica nova. `npm run build` ✅ (107 módulos, 0 erros).
+
+---
+
 **H-32 concluída (2026-06-01):** `FeedbackBanner` substitui os 4 `alert()` nativos.
 - Novo `src/components/feedback/FeedbackBanner.jsx` — props `{ kind, message, onClose }`, variantes success/error, ✕ dispensável, sem timer; `role="alert"` (erro) / `role="status"` (sucesso); `aria-label` no botão fechar.
 - `AccountAdminPage` (desvincular, status), `AdminPlansPage` (plano), `AdminUsersPage` (status): estado local `actionFeedback`; `alert(...)` → `setActionFeedback({ kind:'error', message })`; banner no topo da área de conteúdo.

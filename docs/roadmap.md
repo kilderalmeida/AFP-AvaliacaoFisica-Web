@@ -1,6 +1,6 @@
 # AFP Web — Roadmap técnico
 
-_Atualizado em: 2026-06-01 (Wave 7 registrada — EPIC-9 Polimento de UX, H-26 a H-33; H-26 é a próxima história, aguardando fechamento do recorte)_
+_Atualizado em: 2026-06-01 (Wave 7 completa — EPIC-9 Polimento de UX, H-26 a H-33 todas done)_
 
 ---
 
@@ -117,7 +117,7 @@ _Refinamento de UX/apresentação, sem novas regras de negócio. Recorte detalha
 | H-30 | Organização dos vínculos: busca, ordenação e contagem | 7 | **done** |
 | H-31 | Revisão de microcopy (mensagens de sucesso / erro / confirmação) | 7 | **done** |
 | H-32 | Feedback de ações administrativas via banner padronizado | 7 | **done** |
-| H-33 | Indicador de uso de plano mais legível no topo da conta | 7 | **next** |
+| H-33 | Indicador de uso de plano mais legível no topo da conta | 7 | **done** |
 
 ---
 
@@ -149,7 +149,7 @@ Wave 6 — Admin Operacional
   H-24  ✅ done  (coaches na seção de treinadores + badge papel)
   H-25  ✅ done  (desativar/reativar trainer ou coach)
 
-Wave 7 — Polimento de UX (EPIC-9 — em andamento)
+Wave 7 — Polimento de UX (EPIC-9 — completa)
   H-26  ✅ done  (StatusBadge — Conta, Meus Atletas, Admin contas e planos)
   H-27  ✅ done  (EmptyStateCard adotado nas listas; CTA onde a ação existe)
   H-28  ✅ done  (EmptyStateCard loading + ErrorStateCard retry nas 4 telas)
@@ -157,7 +157,7 @@ Wave 7 — Polimento de UX (EPIC-9 — em andamento)
   H-30  ✅ done  (busca/ordenação/contagem + badge "Convidado" na AthleteLinksTable)
   H-31  ✅ done  (microcopy conta+admin; copy fixa, sem vazar err.message)
   H-32  ✅ done  (FeedbackBanner substitui os 4 alert() nativos)
-  H-33  ⏭ next  (indicador de uso de plano)
+  H-33  ✅ done  (bloco de uso de plano no topo + pista âmbar near-limit)
 ```
 
 ---
