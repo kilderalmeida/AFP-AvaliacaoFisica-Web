@@ -1,6 +1,29 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26, H-27 e H-28 concluídas; H-29 é a próxima)_
+_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 a H-29 concluídas; H-30 é a próxima)_
+
+---
+
+## H-29 — Resumo de card de atleta mais informativo (Wave 7 — concluída)
+
+**Recorte fechado com o usuário:** corte de inatividade de 14 dias · "Último check-in: DD/MM/AAAA" (data absoluta) + rótulo âmbar "Sem atividade há X dias" quando estoura o corte · só cards ativos (trainer + coach) · cards inativos sem resumo · sem nova query/backend/modelo.
+
+**Arquivo:** `src/pages/trainer/TrainerAthletesPage.jsx`
+
+**O que foi feito:**
+- Bloco `activitySummary` do card ativo: data agora prefixada com "Último check-in: "; após o badge de status, rótulo âmbar "Sem atividade há X dias" quando `daysSince(activityDate) > INACTIVITY_DAYS`.
+- Helper local `daysSince(ts)` (mesmo tratamento de Timestamp do `formatDate`: `ts.toDate()` ou `ts.seconds`; `Math.floor((Date.now() - d)/86400000)`).
+- Constante `INACTIVITY_DAYS = 14`.
+- Estilo `inactivityLabel` (pill âmbar `#fef3c7`/`#92400e`); `activitySummary` ganhou `flexWrap: 'wrap'` para o rótulo quebrar linha em cards estreitos.
+- Reusa o `lastActivity` já carregado por `listActivitiesByAthlete({ limit: 1 })` — **sem nova query**.
+
+**Escopo respeitado:** sem atividade → "Sem atividades registradas" (inalterado); cards inativos seguem sem resumo (igual H-20); comportamento idêntico para trainer e coach.
+
+**Sem mudanças em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados.
+
+**Validado:** `npm run build` ✅ 106 módulos, 0 erros.
+
+**Próximo passo:** H-30 — Organização dos vínculos: busca, ordenação e contagem.
 
 ---
 

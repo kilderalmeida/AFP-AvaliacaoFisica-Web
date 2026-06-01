@@ -170,9 +170,14 @@ export default function TrainerAthletesPage() {
                 {a.lastActivity ? (
                   <>
                     <span style={styles.activityDate}>
-                      {formatDate(a.lastActivity.activityDate)}
+                      Último check-in: {formatDate(a.lastActivity.activityDate)}
                     </span>
                     <StatusBadge kind="activity" value={a.lastActivity.status} />
+                    {daysSince(a.lastActivity.activityDate) > INACTIVITY_DAYS && (
+                      <span style={styles.inactivityLabel}>
+                        Sem atividade há {daysSince(a.lastActivity.activityDate)} dias
+                      </span>
+                    )}
                   </>
                 ) : (
                   <span style={styles.activityNone}>Sem atividades registradas</span>
@@ -255,10 +260,18 @@ export default function TrainerAthletesPage() {
   );
 }
 
+const INACTIVITY_DAYS = 14;
+
 function formatDate(ts) {
   if (!ts) return '—';
   const d = ts.toDate ? ts.toDate() : new Date(ts.seconds * 1000);
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function daysSince(ts) {
+  if (!ts) return 0;
+  const d = ts.toDate ? ts.toDate() : new Date(ts.seconds * 1000);
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
 
 const styles = {
@@ -310,11 +323,20 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
+    flexWrap: 'wrap',
     fontSize: '12px',
     color: '#475569',
   },
   activityDate: { color: '#475569' },
   activityNone: { color: '#94a3b8', fontStyle: 'italic' },
+  inactivityLabel: {
+    padding: '2px 8px',
+    borderRadius: '999px',
+    background: '#fef3c7',
+    color: '#92400e',
+    fontSize: '11px',
+    fontWeight: 600,
+  },
   cardActions: { display: 'flex', gap: '8px' },
   unlinkedDate: {
     margin: 0,

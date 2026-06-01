@@ -334,6 +334,37 @@ Decisões confirmadas com o usuário:
 
 **Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`.
 
+## Recorte final fechado — H-29 (2026-06-01)
+
+Decisões confirmadas com o usuário:
+
+| Tópico | Decisão |
+|---|---|
+| Corte de inatividade | **14 dias** desde o último check-in |
+| Apresentação da data | **"Último check-in: DD/MM/AAAA"** (data absoluta) + rótulo de inatividade quando estoura o corte |
+| Escopo | **Somente cards ativos** (trainer e coach); cards inativos seguem sem resumo (igual H-20) |
+
+**Comportamento do resumo no card ativo (`TrainerAthletesPage`):**
+- Com `lastActivity`: linha "Último check-in: DD/MM/AAAA" + badge de status (`StatusBadge kind="activity"`, já existente).
+- Se `daysSince(activityDate) > 14`: rótulo âmbar "Sem atividade há X dias" (X = dias inteiros desde o último check-in).
+- Sem `lastActivity`: mantém "Sem atividades registradas" (texto cinza atual).
+
+**Implementação prevista:**
+- Novo helper local `daysSince(ts)` (mesmo tratamento de Timestamp do `formatDate`: `ts.toDate()` ou `ts.seconds`); retorna dias inteiros (`Math.floor((Date.now() - d) / 86400000)`).
+- Reusa o `lastActivity` já carregado por `listActivitiesByAthlete({ limit: 1 })` — **sem nova query**.
+- Novo estilo para o rótulo de inatividade (âmbar, ex.: `#92400e` sobre `#fef3c7`), seguindo a paleta já usada na wave.
+
+**Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados.
+
+**H-29 concluída (2026-06-01):** resumo de card enriquecido na `TrainerAthletesPage`.
+- Card ativo: "Último check-in: DD/MM/AAAA" + badge de status; rótulo âmbar "Sem atividade há X dias" quando `daysSince(activityDate) > 14`.
+- Sem atividade → mantém "Sem atividades registradas". Cards inativos seguem sem resumo.
+- Helper `daysSince(ts)` + constante `INACTIVITY_DAYS = 14`; estilo `inactivityLabel` (âmbar `#92400e`/`#fef3c7`); `activitySummary` ganhou `flexWrap`.
+- Reusa o `lastActivity` já carregado — sem nova query, sem backend, sem mudança de modelo.
+- `npm run build` ✅ (106 módulos, 0 erros).
+
+---
+
 **H-28 concluída (2026-06-01):** as 4 telas padronizadas.
 - `AdminAccountsPage`, `AdminPlansPage`, `AccountAdminPage`: loading → `EmptyStateCard`; erro → `ErrorStateCard` com retry no `load()` (já `useCallback`).
 - `TrainerAthletesPage`: `load()` elevado de dentro do `useEffect` para `useCallback` (comportamento preservado — guard `!user?.uid` mantido, deps `[user?.uid, isCoach]` idênticas); loading/erro padronizados com retry.
