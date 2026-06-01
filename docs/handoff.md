@@ -1,12 +1,38 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-06-01 (Wave 7 aberta — EPIC-9 Polimento de UX; H-26 concluída; H-27 é a próxima)_
+_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 e H-27 concluídas; H-28 é a próxima)_
+
+---
+
+## H-27 — Estados vazios (empty states) consistentes (Wave 7 — concluída)
+
+**Recorte fechado com o usuário:** reusar o `EmptyStateCard` existente · sem ícone nesta wave · CTA só onde a ação já existe na tela · listas sem ação própria ficam só com mensagem · mensagens de validação em formulários ficam fora de escopo.
+
+**Componente reaproveitado:** `src/components/feedback/EmptyStateCard.jsx` (já usado em Atividades/Detalhe/Dashboard) — nenhum componente novo criado.
+
+**Arquivos:**
+- `src/pages/trainer/TrainerAthletesPage.jsx` — listas de ativos e inativos → `EmptyStateCard` (message-only; trainer não convida).
+- `src/pages/account/AccountAdminPage.jsx` — seção "Treinadores e Coaches" → `EmptyStateCard` com CTA "+ Convidar" (mesmo handler do botão do header).
+- `src/pages/admin/AdminAccountsPage.jsx` — vazio → CTA "+ Nova conta"; sem match de filtro → CTA "Limpar filtros".
+- `src/pages/admin/AdminPlansPage.jsx` — vazio → CTA "+ Novo plano".
+- `src/components/account/AthleteLinksTable.jsx` — empties de ativos/inativos → `EmptyStateCard` (message-only; botões já no header acima); estilo `empty` removido.
+
+**Decisões de escopo:**
+- CTAs reaproveitam os botões/handlers que já existem em cada tela — nenhuma navegação ou estado novo.
+- `styles.hint` foi mantido onde ainda serve ao estado de carregamento ("Carregando…").
+- Mensagens de validação em formulários da `AccountAdminPage` ("Nenhum atleta/treinador disponível para vincular") **não** foram tocadas — não são empty state de lista.
+
+**Sem mudanças em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`.
+
+**Validado:** `npm run build` ✅ 106 módulos, 0 erros.
+
+**Próximo passo:** H-28 — Estados de carregamento e erro padronizados nas listas.
 
 ---
 
 ## H-26 — Componente único de badge de status (Wave 7 — concluída)
 
-**Recorte fechado com o usuário:** abstração mínima (componente) · API semântica por domínio · reuso de `kind="userStatus"` para conta/plano. Detalhe completo em `docs/wave7-proposal.md`.
+**Commit:** `b4fc9bb`. **Recorte fechado com o usuário:** abstração mínima (componente) · API semântica por domínio · reuso de `kind="userStatus"` para conta/plano. Detalhe completo em `docs/wave7-proposal.md`.
 
 **Arquivos:**
 - `src/components/ui/StatusBadge.jsx` — NOVO. API `<StatusBadge kind value />`. Tons: success/neutral/info/warning/accent. Domínios: `userStatus` (invited/active/inactive), `role` (trainer/coach), `activity` (open/completed). Fallback: valor cru + tom neutro.

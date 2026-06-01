@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { listAllPlans, updatePlan } from '../../services/accountService.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
+import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
 
 export default function AdminPlansPage() {
   const navigate = useNavigate();
@@ -58,7 +59,15 @@ export default function AdminPlansPage() {
       {error && <p style={styles.errorText}>{error}</p>}
 
       {!loading && !error && plans.length === 0 && (
-        <p style={styles.hint}>Nenhum plano criado ainda.</p>
+        <EmptyStateCard
+          title="Nenhum plano criado ainda"
+          message="Crie o primeiro plano para disponibilizá-lo às contas."
+          action={
+            <button style={styles.btnNew} onClick={() => navigate('/admin/plans/new')}>
+              + Novo plano
+            </button>
+          }
+        />
       )}
 
       {!loading && !error && plans.length > 0 && (

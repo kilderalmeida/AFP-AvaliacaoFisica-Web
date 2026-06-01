@@ -9,6 +9,7 @@ import { getUserProfile } from '../../services/userService.js';
 import { activityService } from '../../services/activity.service.js';
 import { fetchCoachAthletes } from '../../services/coach-athletes-backend.service.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
+import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
 
 export default function TrainerAthletesPage() {
   const { user, role } = useAuth();
@@ -139,7 +140,10 @@ export default function TrainerAthletesPage() {
       {error && <p style={styles.errorText}>{error}</p>}
 
       {!loading && !error && athletes.length === 0 && (
-        <p style={styles.hint}>Nenhum atleta vinculado a você no momento.</p>
+        <EmptyStateCard
+          title="Nenhum atleta vinculado"
+          message="Você ainda não tem atletas vinculados no momento."
+        />
       )}
 
       {!loading && !error && athletes.length > 0 && (
@@ -200,7 +204,10 @@ export default function TrainerAthletesPage() {
               {loadingInactive && <p style={styles.hint}>Carregando histórico...</p>}
 
               {!loadingInactive && inactiveLoaded && inactiveAthletes.length === 0 && (
-                <p style={styles.hint}>Nenhum vínculo inativo encontrado.</p>
+                <EmptyStateCard
+                  title="Nenhum vínculo inativo"
+                  message="Não há vínculos inativos no histórico."
+                />
               )}
 
               {!loadingInactive && inactiveAthletes.length > 0 && (

@@ -80,8 +80,9 @@ consolidando as que já existem.
 
 Listas que podem vir vazias (Meus Atletas, Atividades, Treinadores e Coaches,
 Admin de contas, Admin de planos, vínculos inativos) mostram hoje "nada" ou um
-texto solto. Padronizar um bloco de **empty state** (ícone simples + frase
-explicativa + CTA quando fizer sentido, ex.: "+ Convidar atleta").
+texto solto. Padronizar um bloco de **empty state** reusando o
+`EmptyStateCard` já existente (frase explicativa + CTA quando fizer sentido,
+ex.: "+ Convidar"). Sem ícone nesta wave.
 
 ### H-28 — Estados de carregamento e erro padronizados
 
@@ -144,11 +145,15 @@ nem de dados.
 
 ### H-27 — Estados vazios consistentes
 
-- [ ] Componente de empty state reutilizável criado.
-- [ ] Aplicado em: Meus Atletas (ativos e inativos), Atividades, Treinadores e
-      Coaches, Admin de contas, Admin de planos.
+- [ ] Reusar o `EmptyStateCard` existente (sem componente novo; sem ícone nesta wave).
+- [ ] Aplicado em: Meus Atletas (ativos e inativos), Treinadores e Coaches,
+      Admin de contas (vazio + sem match de filtro), Admin de planos,
+      `AthleteLinksTable` (ativos e inativos). _(Atividades/Detalhe/Dashboard já usam.)_
 - [ ] Cada empty state tem frase explicativa em pt-BR; CTA presente onde a ação
-      existe na tela (ex.: convidar).
+      existe na tela (Convidar / Nova conta / Novo plano / Limpar filtros).
+- [ ] Listas sem ação na própria tela (Meus Atletas do trainer) ficam só com mensagem.
+- [ ] Mensagens de validação dentro de formulários (ex.: "Nenhum atleta
+      disponível para vincular") **não** são alteradas — não são empty state de lista.
 - [ ] Listas com dados continuam renderizando normalmente.
 
 ### H-28 — Estados de carregamento e erro padronizados
@@ -267,7 +272,45 @@ Decisões confirmadas com o usuário:
 - `AdminPlansPage`: badge `isActive` → `StatusBadge value={plan.isActive ? 'active' : 'inactive'}`; estilos `badgeActive`/`badgeInactive` removidos.
 - `npm run build` ✅ (106 módulos, 0 erros).
 
-**H-26 concluída** — todos os badges inline das 4 telas migrados para `StatusBadge`; nenhuma duplicação remanescente.
+**H-26 concluída** — todos os badges inline das 4 telas migrados para `StatusBadge`; nenhuma duplicação remanescente. Commit `b4fc9bb`.
+
+---
+
+## Recorte final fechado — H-27 (2026-06-01)
+
+Decisões confirmadas com o usuário:
+
+| Tópico | Decisão |
+|---|---|
+| Componente | **Reusar `src/components/feedback/EmptyStateCard.jsx`** (já usado em Atividades/Detalhe/Dashboard); não criar nada novo |
+| Ícone | **Sem ícone nesta wave** — mantém título/mensagem/hint/CTA |
+| CTA | **Onde a ação já existe na tela**; reaproveita o botão existente. Sem ação própria → só mensagem |
+
+**Telas/listas a migrar (de `<p>` solto para `EmptyStateCard`):**
+
+| Local | Mensagem atual | CTA a fiar |
+|---|---|---|
+| `TrainerAthletesPage` — ativos | "Nenhum atleta vinculado a você no momento." | — (trainer não convida) |
+| `TrainerAthletesPage` — inativos | "Nenhum vínculo inativo encontrado." | — |
+| `AccountAdminPage` — Treinadores e Coaches | "Nenhum trainer ou coach nesta conta…" | "+ Convidar" (handler já existe) |
+| `AdminAccountsPage` — sem contas | "Nenhuma conta criada ainda." | "+ Nova conta" |
+| `AdminAccountsPage` — sem match de filtro | "Nenhuma conta corresponde aos filtros." | "Limpar filtros" |
+| `AdminPlansPage` — sem planos | "Nenhum plano criado ainda." | "+ Novo plano" |
+| `AthleteLinksTable` — ativos/inativos | `styles.empty` próprio | — (botões já no header acima) |
+
+**Fora de escopo:** mensagens de validação em formulários da `AccountAdminPage`
+("Nenhum atleta/treinador disponível para vincular") — não são empty state de lista.
+
+**Sem mudanças em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`.
+
+**H-27 concluída (2026-06-01):** todas as 7 listas migradas para `EmptyStateCard`.
+- `TrainerAthletesPage`: ativos e inativos → message-only (trainer não convida).
+- `AccountAdminPage` (Treinadores e Coaches): CTA "+ Convidar" reaproveitando o handler existente.
+- `AdminAccountsPage`: vazio → CTA "+ Nova conta"; sem match de filtro → CTA "Limpar filtros".
+- `AdminPlansPage`: CTA "+ Novo plano".
+- `AthleteLinksTable`: ativos e inativos → message-only; estilo `empty` removido.
+- `styles.hint` mantido onde ainda serve ao estado de carregamento.
+- `npm run build` ✅ (106 módulos, 0 erros).
 
 ---
 

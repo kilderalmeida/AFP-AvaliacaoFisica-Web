@@ -1,3 +1,5 @@
+import { EmptyStateCard } from '../feedback/EmptyStateCard.jsx';
+
 export function AthleteLinksTable({
   links,
   unlinkingId,
@@ -12,12 +14,16 @@ export function AthleteLinksTable({
   const isInactive = mode === 'inactive';
 
   if (links.length === 0) {
-    return (
-      <p style={styles.empty}>
-        {isInactive
-          ? 'Nenhum vínculo inativo.'
-          : 'Nenhum atleta vinculado. Use o botão "Vincular atleta" para adicionar.'}
-      </p>
+    return isInactive ? (
+      <EmptyStateCard
+        title="Nenhum vínculo inativo"
+        message="Não há vínculos inativos nesta conta."
+      />
+    ) : (
+      <EmptyStateCard
+        title="Nenhum atleta vinculado"
+        message='Use o botão "Vincular atleta" acima para adicionar.'
+      />
     );
   }
 
@@ -155,11 +161,5 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
-  },
-  empty: {
-    padding: '32px 0',
-    textAlign: 'center',
-    color: '#64748b',
-    fontSize: '14px',
   },
 };

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { listAccounts, listActivePlans } from '../../services/accountService.js';
 import { getAccountActiveAthleteCount } from '../../services/athleteLinkService.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
+import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
 
 const TYPE_LABELS = {
   trainer_account: 'Treinador',
@@ -123,11 +124,30 @@ export default function AdminAccountsPage() {
       {error && <p style={styles.errorText}>{error}</p>}
 
       {!loading && !error && accounts.length === 0 && (
-        <p style={styles.hint}>Nenhuma conta criada ainda.</p>
+        <EmptyStateCard
+          title="Nenhuma conta criada ainda"
+          message="Crie a primeira conta para começar."
+          action={
+            <button style={styles.btnNew} onClick={() => navigate('/admin/accounts/new')}>
+              + Nova conta
+            </button>
+          }
+        />
       )}
 
       {!loading && !error && accounts.length > 0 && filteredAccounts.length === 0 && (
-        <p style={styles.hint}>Nenhuma conta corresponde aos filtros.</p>
+        <EmptyStateCard
+          title="Nenhuma conta corresponde aos filtros"
+          message="Ajuste ou limpe os filtros para ver mais resultados."
+          action={
+            <button
+              style={styles.btnClearFilters}
+              onClick={() => { setSearch(''); setFilterPlanId(''); setFilterStatus(''); }}
+            >
+              Limpar filtros
+            </button>
+          }
+        />
       )}
 
       {!loading && !error && filteredAccounts.length > 0 && (

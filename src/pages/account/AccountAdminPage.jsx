@@ -18,6 +18,7 @@ import { createUser, getUserProfile, listUsers, sendInviteEmail, toggleUserStatu
 import { AccountSummaryCard } from '../../components/account/AccountSummaryCard.jsx';
 import { AthleteLinksTable } from '../../components/account/AthleteLinksTable.jsx';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
+import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
 
 export default function AccountAdminPage() {
   const { user, profile } = useAuth();
@@ -629,7 +630,23 @@ export default function AccountAdminPage() {
           )}
 
           {trainers.length === 0 ? (
-            <p style={styles.hint}>Nenhum trainer ou coach nesta conta. Use "+ Convidar" para adicionar.</p>
+            <EmptyStateCard
+              title="Nenhum trainer ou coach"
+              message="Convide o primeiro para começar a montar a equipe da conta."
+              action={
+                <button
+                  style={styles.btnPrimary}
+                  onClick={() => {
+                    setShowInviteForm(true);
+                    setInviteError(null);
+                    setInviteSuccess(null);
+                    setInviteForm({ email: '', displayName: '', papel: 'trainer' });
+                  }}
+                >
+                  + Convidar
+                </button>
+              }
+            />
           ) : (
             <div style={styles.trainerTableWrapper}>
               <table style={styles.trainerTable}>
