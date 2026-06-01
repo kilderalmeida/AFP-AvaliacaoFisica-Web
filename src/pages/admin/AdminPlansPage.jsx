@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
 import { ErrorStateCard } from '../../components/feedback/ErrorStateCard.jsx';
+import { FeedbackBanner } from '../../components/feedback/FeedbackBanner.jsx';
 
 export default function AdminPlansPage() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function AdminPlansPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,7 +40,7 @@ export default function AdminPlansPage() {
         prev.map((p) => p.planId === plan.planId ? { ...p, isActive: newActive } : p)
       );
     } catch {
-      alert('Não foi possível atualizar o plano. Tente novamente.');
+      setActionFeedback({ kind: 'error', message: 'Não foi possível atualizar o plano. Tente novamente.' });
     } finally {
       setTogglingId(null);
     }
@@ -55,6 +57,14 @@ export default function AdminPlansPage() {
           + Novo plano
         </button>
       </div>
+
+      {actionFeedback && (
+        <FeedbackBanner
+          kind={actionFeedback.kind}
+          message={actionFeedback.message}
+          onClose={() => setActionFeedback(null)}
+        />
+      )}
 
       {loading && (
         <EmptyStateCard title="Carregando..." message="Buscando planos." />

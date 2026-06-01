@@ -116,8 +116,8 @@ _Refinamento de UX/apresentação, sem novas regras de negócio. Recorte detalha
 | H-29 | Resumo de card de atleta mais informativo em "Meus Atletas" | 7 | **done** |
 | H-30 | Organização dos vínculos: busca, ordenação e contagem | 7 | **done** |
 | H-31 | Revisão de microcopy (mensagens de sucesso / erro / confirmação) | 7 | **done** |
-| H-32 | Feedback de ações administrativas via banner padronizado | 7 | **next** |
-| H-33 | Indicador de uso de plano mais legível no topo da conta | 7 | todo |
+| H-32 | Feedback de ações administrativas via banner padronizado | 7 | **done** |
+| H-33 | Indicador de uso de plano mais legível no topo da conta | 7 | **next** |
 
 ---
 
@@ -156,8 +156,8 @@ Wave 7 — Polimento de UX (EPIC-9 — em andamento)
   H-29  ✅ done  ("Último check-in" + rótulo de inatividade 14d nos cards ativos)
   H-30  ✅ done  (busca/ordenação/contagem + badge "Convidado" na AthleteLinksTable)
   H-31  ✅ done  (microcopy conta+admin; copy fixa, sem vazar err.message)
-  H-32  ⏭ next  (banner de feedback admin)
-  H-33  todo    (indicador de uso de plano)
+  H-32  ✅ done  (FeedbackBanner substitui os 4 alert() nativos)
+  H-33  ⏭ next  (indicador de uso de plano)
 ```
 
 ---

@@ -20,6 +20,7 @@ import { AthleteLinksTable } from '../../components/account/AthleteLinksTable.js
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
 import { ErrorStateCard } from '../../components/feedback/ErrorStateCard.jsx';
+import { FeedbackBanner } from '../../components/feedback/FeedbackBanner.jsx';
 
 export default function AccountAdminPage() {
   const { user, profile } = useAuth();
@@ -32,6 +33,7 @@ export default function AccountAdminPage() {
 
   const [resendingEmail, setResendingEmail] = useState(null);
   const [resendFeedback, setResendFeedback] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
   const [togglingTrainer, setTogglingTrainer] = useState(null);
 
   const [trainers, setTrainers] = useState([]);
@@ -190,7 +192,7 @@ export default function AccountAdminPage() {
       await deactivateAthleteLink(link.athleteId, link.trainerId, user.uid);
       await load();
     } catch {
-      alert('Não foi possível desvincular o atleta. Tente novamente.');
+      setActionFeedback({ kind: 'error', message: 'Não foi possível desvincular o atleta. Tente novamente.' });
     } finally {
       setUnlinkingId(null);
     }
@@ -244,7 +246,7 @@ export default function AccountAdminPage() {
         prev.map((t) => (t.uid === trainer.uid ? { ...t, status: newStatus } : t))
       );
     } catch {
-      alert('Não foi possível atualizar o status. Tente novamente.');
+      setActionFeedback({ kind: 'error', message: 'Não foi possível atualizar o status. Tente novamente.' });
     } finally {
       setTogglingTrainer(null);
     }
@@ -473,6 +475,14 @@ export default function AccountAdminPage() {
             limitInfo={limitInfo}
             upgradeUrl={import.meta.env.VITE_UPGRADE_URL || ''}
           />
+
+          {actionFeedback && (
+            <FeedbackBanner
+              kind={actionFeedback.kind}
+              message={actionFeedback.message}
+              onClose={() => setActionFeedback(null)}
+            />
+          )}
 
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle}>Dados da academia</h2>

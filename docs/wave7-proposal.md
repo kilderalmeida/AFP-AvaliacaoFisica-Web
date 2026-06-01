@@ -405,6 +405,36 @@ Decisões confirmadas com o usuário:
 
 **Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo, lógica de erro (só as strings apresentadas).
 
+## Recorte final fechado — H-32 (2026-06-01)
+
+Decisões confirmadas com o usuário:
+
+| Tópico | Decisão |
+|---|---|
+| Componente | **Criar `FeedbackBanner`** (success/error) em `components/feedback` — não há banner de feedback pós-ação; `ErrorStateCard` tem semântica de erro-de-carga-com-retry |
+| Abrangência | **Só os 4 `alert()` nativos** → banner de página em `AccountAdminPage` (desvincular, status), `AdminPlansPage` (plano), `AdminUsersPage` (status). Feedbacks inline existentes (inviteSuccess, resendFeedback, etc.) ficam como estão |
+| Comportamento | **Dispensável** (✕), **sem auto-hide**, no topo da área de conteúdo |
+| `confirm()` | Permanece nativo (inalterado) |
+
+**Componente previsto (`FeedbackBanner.jsx`):**
+- Props: `{ kind: 'success' | 'error', message, onClose }`.
+- Visual: barra com a mensagem + botão ✕; verde para `success`, vermelho para `error` (paleta da wave). Sem timer/efeito.
+
+**Aplicação por tela:**
+- Estado local `actionFeedback` (`{ kind, message } | null`) por tela; onde havia `alert(...)`, passa a `setActionFeedback({ kind: 'error', message })`.
+- `<FeedbackBanner ... onClose={() => setActionFeedback(null)} />` renderizado no topo da área de conteúdo.
+- Os 4 casos atuais são **erros** (os alerts eram de erro); o componente suporta `success` para reuso futuro, mas os sucessos de toggle continuam silenciosos (sem novo banner) — fiel ao "só os 4 alert()".
+
+**Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo, lógica de erro (só o meio de exibição: `alert` → banner). `confirm()` mantido.
+
+**H-32 concluída (2026-06-01):** `FeedbackBanner` substitui os 4 `alert()` nativos.
+- Novo `src/components/feedback/FeedbackBanner.jsx` — props `{ kind, message, onClose }`, variantes success/error, ✕ dispensável, sem timer; `role="alert"` (erro) / `role="status"` (sucesso); `aria-label` no botão fechar.
+- `AccountAdminPage` (desvincular, status), `AdminPlansPage` (plano), `AdminUsersPage` (status): estado local `actionFeedback`; `alert(...)` → `setActionFeedback({ kind:'error', message })`; banner no topo da área de conteúdo.
+- Os 4 casos são erros; sucessos de toggle seguem silenciosos. `confirm()` mantido nativo.
+- Zero `alert()` restante no projeto. `npm run build` ✅ (107 módulos — +1 do componente novo, 0 erros).
+
+---
+
 **H-31 concluída (2026-06-01):** microcopy padronizada nas 6 telas de conta/admin.
 - Erros técnicos: `err.message` removido da UI; copy fixa "Não foi possível _ação_. Tente novamente." (carregar dados/conta/planos/contas/opções de vínculo, criar/transferir vínculo, desvincular, reativar, atualizar status/plano, salvar dados/conta/plano, convidar).
 - Regras de negócio preservadas com copy específica nossa (limite atingido, e-mail já cadastrado) — inalteradas/refinadas, sem `err.message`.

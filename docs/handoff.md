@@ -1,6 +1,34 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 a H-31 concluídas; H-32 é a próxima)_
+_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 a H-32 concluídas; H-33 é a próxima)_
+
+---
+
+## H-32 — Feedback de ações administrativas via banner padronizado (Wave 7 — concluída)
+
+**Recorte fechado com o usuário:** criar `FeedbackBanner` (success/error) · substituir só os 4 `alert()` nativos · dispensável (✕), sem auto-hide · banner contextual de página (não modal) · `confirm()` mantido · sem expandir para outros fluxos.
+
+**Componente novo:** `src/components/feedback/FeedbackBanner.jsx`
+- Props `{ kind, message, onClose }`; variantes success (verde) / error (vermelho); botão ✕ sem timer.
+- Acessibilidade: `role="alert"` para erro, `role="status"` para sucesso; `aria-label="Fechar mensagem"` no botão.
+
+**Telas alteradas:**
+- `src/pages/account/AccountAdminPage.jsx` — estado `actionFeedback`; alerts de desvincular e atualizar status → banner (após o `AccountSummaryCard`).
+- `src/pages/admin/AdminPlansPage.jsx` — estado `actionFeedback`; alert de atualizar plano → banner (após o header).
+- `src/pages/admin/AdminUsersPage.jsx` — estado `actionFeedback`; alert de atualizar status → banner (após o header).
+
+**Decisões/limites respeitados:**
+- Substituído **só o meio de exibição** (`alert` → `state + FeedbackBanner`); lógica de erro inalterada.
+- Os 4 casos são erros; os sucessos de toggle continuam silenciosos (não faziam parte dos alerts).
+- Feedbacks inline já existentes (`inviteSuccess`, `resendFeedback`, etc.) não foram tocados.
+- `confirm()` mantido nativo; sem auto-hide; sem sistema global de notificações.
+- Zero `alert()` restante no projeto.
+
+**Sem mudanças em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados.
+
+**Validado:** `npm run build` ✅ 107 módulos (+1 do componente novo), 0 erros.
+
+**Próximo passo:** H-33 — Indicador de uso de plano mais legível no topo da conta.
 
 ---
 

@@ -4,6 +4,7 @@ import { listUsers, toggleUserStatus } from '../../services/userService.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { UsersTable } from '../../components/users/UsersTable.jsx';
 import { UserFilters } from '../../components/users/UserFilters.jsx';
+import { FeedbackBanner } from '../../components/feedback/FeedbackBanner.jsx';
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
@@ -20,6 +21,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [togglingUid, setTogglingUid] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,7 +47,7 @@ export default function AdminUsersPage() {
         prev.map((u) => (u.uid === uid ? { ...u, status: newStatus } : u))
       );
     } catch {
-      alert('Não foi possível atualizar o status. Tente novamente.');
+      setActionFeedback({ kind: 'error', message: 'Não foi possível atualizar o status. Tente novamente.' });
     } finally {
       setTogglingUid(null);
     }
@@ -62,6 +64,14 @@ export default function AdminUsersPage() {
           + Novo usuário
         </button>
       </div>
+
+      {actionFeedback && (
+        <FeedbackBanner
+          kind={actionFeedback.kind}
+          message={actionFeedback.message}
+          onClose={() => setActionFeedback(null)}
+        />
+      )}
 
       {filters.accountId && (
         <div style={styles.accountBanner}>
