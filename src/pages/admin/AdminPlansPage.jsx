@@ -20,7 +20,7 @@ export default function AdminPlansPage() {
     try {
       setPlans(await listAllPlans());
     } catch (err) {
-      setError('Erro ao carregar planos.');
+      setError('Não foi possível carregar os planos. Tente novamente.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -37,8 +37,8 @@ export default function AdminPlansPage() {
       setPlans((prev) =>
         prev.map((p) => p.planId === plan.planId ? { ...p, isActive: newActive } : p)
       );
-    } catch (err) {
-      alert('Erro ao atualizar plano: ' + err.message);
+    } catch {
+      alert('Não foi possível atualizar o plano. Tente novamente.');
     } finally {
       setTogglingId(null);
     }

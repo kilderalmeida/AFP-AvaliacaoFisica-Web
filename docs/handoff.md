@@ -1,6 +1,30 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 a H-30 concluídas; H-31 é a próxima)_
+_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 a H-31 concluídas; H-32 é a próxima)_
+
+---
+
+## H-31 — Revisão de microcopy (Wave 7 — concluída)
+
+**Recorte fechado com o usuário:** escopo só conta+admin · copy-only (sem mudar mecanismo/layout/fluxo) · nunca vazar `err.message` na UI · erro técnico → copy fixa genérica; regra de negócio conhecida → copy fixa específica nossa · tom impessoal, curto, sentence case, ponto final, sem exclamação, nome/e-mail entre aspas.
+
+**Arquivos (6):** `AccountAdminPage.jsx`, `AdminAccountsPage.jsx`, `AdminPlansPage.jsx`, `AdminUsersPage.jsx`, `AdminAccountFormPage.jsx`, `AdminPlanFormPage.jsx`.
+
+**O que foi feito:**
+- Substituídos os `alert('Erro ao …: ' + err.message)` (desvincular, atualizar status em conta e em AdminUsers, atualizar plano) por copy fixa sem `err.message`.
+- Substituídos os fallbacks `setX(err.message || 'Erro ao …')` (carregar dados da conta, opções de vínculo, criar vínculo, reativar, transferir, convidar atleta/trainer, salvar dados, salvar/criar conta, salvar plano, carregar planos/contas/plano) por "Não foi possível _ação_. Tente novamente.".
+- Regras de negócio mantidas com copy específica nossa: limite de atletas atingido (link/reativar/transferir/convidar) e e-mail já cadastrado — sem `err.message`.
+- Sucessos com nome/e-mail entre aspas; "criar a senha" no convite de trainer.
+- `confirm()` de Desvincular/Reativar mantidos (já em bom tom).
+- Catches que ficaram sem uso de `err` migrados para `catch {` (padrão já usado no código), evitando variável não usada; `console.error(err)` preservado onde já existia (load handlers).
+
+**Limites respeitados:** sem mudança de comportamento, estrutura de tratamento, layout ou fluxo; sem banner (isso é a H-32); sem refactor amplo.
+
+**Sem mudanças em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados.
+
+**Validado:** `npm run build` ✅ 106 módulos, 0 erros.
+
+**Próximo passo:** H-32 — Feedback de ações administrativas via banner padronizado.
 
 ---
 

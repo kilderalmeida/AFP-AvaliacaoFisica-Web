@@ -45,7 +45,7 @@ export default function AdminAccountsPage() {
       setAccounts(enriched);
       setPlans(plansList);
     } catch (err) {
-      setError('Erro ao carregar contas.');
+      setError('Não foi possível carregar as contas. Tente novamente.');
       console.error(err);
     } finally {
       setLoading(false);

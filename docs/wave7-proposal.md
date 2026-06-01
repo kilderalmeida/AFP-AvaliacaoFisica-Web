@@ -379,6 +379,42 @@ Decisões confirmadas com o usuário:
 
 **Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados (busca/ordenação 100% client-side).
 
+## Recorte final fechado — H-31 (2026-06-01)
+
+Decisões confirmadas com o usuário:
+
+| Tópico | Decisão |
+|---|---|
+| Escopo | **Só conta + admin**: `AccountAdminPage`, `AdminAccountsPage`, `AdminPlansPage`, `AdminUsersPage`, `AdminAccountFormPage`, `AdminPlanFormPage`. CheckIn/CheckOut/Dashboard/Avaliação **fora** (copy já polida) |
+| `err.message` | **Nunca vazar na UI**; trocar `'Erro ao X: ' + err.message` por copy fixa, impessoal e acionável; manter `console.error` |
+| Natureza | **Copy-only** — sem mudar mecanismo (alert/inline permanecem; banner é a H-32), sem layout/fluxo/comportamento |
+
+**Política de mensagens de erro (importante):**
+- **Erro técnico/desconhecido** → copy fixa genérica ("Não foi possível _ação_. Tente novamente."), sem `err.message`.
+- **Regra de negócio conhecida** (ex.: limite de atletas atingido, e-mail já cadastrado) → copy fixa **específica e amigável** (texto nosso, não o `err.message`), preservando o significado sem expor texto do backend.
+
+**Diretriz de tom:** impessoal, direto, frases curtas; primeira maiúscula + ponto final; sem exclamação; e-mail/nome entre aspas quando citado. Foco em textos curtos, rótulos, mensagens de estado e consistência — não é revisão de layout/fluxo.
+
+**Inventário-alvo (copy a padronizar):**
+- `AccountAdminPage`: `alert('Erro ao desvincular…')`, `alert('Erro ao atualizar status…')`; `setError`/`setLinkError`/`setReactivateError`/`setTransferError`/`setInviteError`/`setInviteAthleteError`/`setInfoError`; sucessos (`inviteSuccess`, resend, `infoSuccess`); `confirm()` de Desvincular e Reativar.
+- `AdminPlansPage`: `alert('Erro ao atualizar plano…')`; `setError('Erro ao carregar planos.')`.
+- `AdminAccountsPage`: `setError('Erro ao carregar contas.')`.
+- `AdminUsersPage`: `alert('Erro ao atualizar status…')`.
+- `AdminAccountFormPage`: `setError('Erro ao carregar dados.')` / `'Erro ao salvar/criar conta.'`.
+- `AdminPlanFormPage`: `setLoadError('Erro ao carregar plano.')`; `setSaveError('Erro ao salvar plano: ' + err.message)`.
+
+**Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo, lógica de erro (só as strings apresentadas).
+
+**H-31 concluída (2026-06-01):** microcopy padronizada nas 6 telas de conta/admin.
+- Erros técnicos: `err.message` removido da UI; copy fixa "Não foi possível _ação_. Tente novamente." (carregar dados/conta/planos/contas/opções de vínculo, criar/transferir vínculo, desvincular, reativar, atualizar status/plano, salvar dados/conta/plano, convidar).
+- Regras de negócio preservadas com copy específica nossa (limite atingido, e-mail já cadastrado) — inalteradas/refinadas, sem `err.message`.
+- Sucessos: e-mail/nome citados entre aspas ("Convite enviado para …", "Convite reenviado para …", "… vinculado a …").
+- `confirm()` de Desvincular/Reativar já em bom tom — mantidos.
+- Catches que perderam o uso de `err` migrados para `catch {` (padrão já presente no código), evitando binding não usado; `console.error` preservado onde existia.
+- Copy-only: nenhuma mudança de mecanismo, layout, fluxo ou lógica de erro. `npm run build` ✅ (106 módulos, 0 erros).
+
+---
+
 **H-30 concluída (2026-06-01):** controles client-side na `AthleteLinksTable`.
 - Estado local `search` + `sortBy` (default `recent`); lista derivada via `useMemo`.
 - Toolbar acima da tabela: input de busca (nome/e-mail, `includes` case-insensitive) + select de ordenação + "Mostrando X de Y".

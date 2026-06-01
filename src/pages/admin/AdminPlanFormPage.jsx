@@ -31,7 +31,7 @@ export default function AdminPlanFormPage() {
           isActive: plan.isActive !== false,
         });
       })
-      .catch(() => setLoadError('Erro ao carregar plano.'));
+      .catch(() => setLoadError('Não foi possível carregar o plano. Tente novamente.'));
   }, [planId, isEdit]);
 
   function handleChange(field, value) {
@@ -66,8 +66,8 @@ export default function AdminPlanFormPage() {
         await createPlan(data, user.uid);
       }
       navigate('/admin/plans');
-    } catch (err) {
-      setSaveError('Erro ao salvar plano: ' + err.message);
+    } catch {
+      setSaveError('Não foi possível salvar o plano. Tente novamente.');
       setSaving(false);
     }
   }

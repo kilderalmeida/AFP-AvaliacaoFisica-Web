@@ -44,8 +44,8 @@ export default function AdminUsersPage() {
       setUsers((prev) =>
         prev.map((u) => (u.uid === uid ? { ...u, status: newStatus } : u))
       );
-    } catch (err) {
-      alert('Erro ao atualizar status: ' + err.message);
+    } catch {
+      alert('Não foi possível atualizar o status. Tente novamente.');
     } finally {
       setTogglingUid(null);
     }

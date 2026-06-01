@@ -61,7 +61,7 @@ export default function AdminAccountFormPage() {
           }
         }
       } catch (err) {
-        setError('Erro ao carregar dados.');
+        setError('Não foi possível carregar os dados. Tente novamente.');
         console.error(err);
       } finally {
         setLoadingData(false);
@@ -112,8 +112,8 @@ export default function AdminAccountFormPage() {
         );
       }
       navigate('/admin/accounts');
-    } catch (err) {
-      setError(err.message || (isEdit ? 'Erro ao salvar conta.' : 'Erro ao criar conta.'));
+    } catch {
+      setError(isEdit ? 'Não foi possível salvar a conta. Tente novamente.' : 'Não foi possível criar a conta. Tente novamente.');
     } finally {
       setSaving(false);
     }

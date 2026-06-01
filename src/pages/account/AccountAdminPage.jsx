@@ -117,7 +117,7 @@ export default function AccountAdminPage() {
         )
       );
     } catch (err) {
-      setError(err.message || 'Erro ao carregar dados da conta.');
+      setError('Não foi possível carregar os dados da conta. Tente novamente.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -151,7 +151,7 @@ export default function AccountAdminPage() {
         )
       );
     } catch (err) {
-      setLinkError('Erro ao carregar opções de vínculo.');
+      setLinkError('Não foi possível carregar as opções de vínculo. Tente novamente.');
       console.error(err);
     }
   }
@@ -175,7 +175,7 @@ export default function AccountAdminPage() {
             `Desative um vínculo antes de vincular outro.`
         );
       } else {
-        setLinkError(err.message || 'Erro ao criar vínculo.');
+        setLinkError('Não foi possível criar o vínculo. Tente novamente.');
       }
     } finally {
       setLinking(false);
@@ -189,8 +189,8 @@ export default function AccountAdminPage() {
     try {
       await deactivateAthleteLink(link.athleteId, link.trainerId, user.uid);
       await load();
-    } catch (err) {
-      alert('Erro ao desvincular: ' + err.message);
+    } catch {
+      alert('Não foi possível desvincular o atleta. Tente novamente.');
     } finally {
       setUnlinkingId(null);
     }
@@ -212,8 +212,8 @@ export default function AccountAdminPage() {
     try {
       await reactivateAthleteLink(link.athleteId, link.trainerId, user.uid);
       await load();
-    } catch (err) {
-      setReactivateError('Erro ao reativar: ' + err.message);
+    } catch {
+      setReactivateError('Não foi possível reativar o vínculo. Tente novamente.');
     } finally {
       setReactivatingId(null);
     }
@@ -224,11 +224,11 @@ export default function AccountAdminPage() {
     setResendFeedback(null);
     try {
       await sendInviteEmail(email);
-      setResendFeedback({ success: true, message: `Convite reenviado para ${email}.` });
-    } catch (err) {
+      setResendFeedback({ success: true, message: `Convite reenviado para "${email}".` });
+    } catch {
       setResendFeedback({
         success: false,
-        message: `Erro ao reenviar para ${email}: ${err.message || 'tente novamente.'}`,
+        message: `Não foi possível reenviar o convite para "${email}". Tente novamente.`,
       });
     } finally {
       setResendingEmail(null);
@@ -243,8 +243,8 @@ export default function AccountAdminPage() {
       setTrainers((prev) =>
         prev.map((t) => (t.uid === trainer.uid ? { ...t, status: newStatus } : t))
       );
-    } catch (err) {
-      alert('Erro ao atualizar status: ' + (err.message || 'tente novamente.'));
+    } catch {
+      alert('Não foi possível atualizar o status. Tente novamente.');
     } finally {
       setTogglingTrainer(null);
     }
@@ -290,8 +290,8 @@ export default function AccountAdminPage() {
       );
       setTransferTarget(null);
       await load();
-    } catch (err) {
-      setTransferError(err.message || 'Erro ao transferir atleta.');
+    } catch {
+      setTransferError('Não foi possível transferir o atleta. Tente novamente.');
     } finally {
       setTransferring(false);
     }
@@ -348,7 +348,7 @@ export default function AccountAdminPage() {
       const trainerName = selectableStaff.find((t) => t.uid === trainerId)?.displayName || trainerId;
       setInviteAthleteSuccess(
         trainerId
-          ? `Atleta "${displayName.trim()}" convidado e vinculado a ${trainerName}.`
+          ? `Atleta "${displayName.trim()}" convidado e vinculado a "${trainerName}".`
           : `Atleta "${displayName.trim()}" convidado. Use "+ Vincular atleta" para criar o vínculo quando necessário.`
       );
       setShowInviteAthleteForm(false);
@@ -363,7 +363,7 @@ export default function AccountAdminPage() {
         );
         await load();
       } else {
-        setInviteAthleteError(err.message || 'Erro ao convidar atleta.');
+        setInviteAthleteError('Não foi possível convidar o atleta. Tente novamente.');
       }
     } finally {
       setInvitingAthlete(false);
@@ -385,7 +385,7 @@ export default function AccountAdminPage() {
         user.uid
       );
       const roleLabel = papel === 'coach' ? 'coach' : 'trainer';
-      setInviteSuccess(`Convite enviado para ${email.trim()}. O ${roleLabel} receberá um e-mail para criar sua senha.`);
+      setInviteSuccess(`Convite enviado para "${email.trim()}". O ${roleLabel} receberá um e-mail para criar a senha.`);
       setShowInviteForm(false);
       setInviteForm({ email: '', displayName: '', papel: 'trainer' });
       await load();
@@ -393,7 +393,7 @@ export default function AccountAdminPage() {
       if (err.code === 'auth/email-already-in-use') {
         setInviteError('Este e-mail já está cadastrado na plataforma.');
       } else {
-        setInviteError(err.message || 'Erro ao convidar.');
+        setInviteError('Não foi possível enviar o convite. Tente novamente.');
       }
     } finally {
       setInviting(false);
@@ -432,8 +432,8 @@ export default function AccountAdminPage() {
       setAccount((prev) => ({ ...prev, ...patch }));
       setEditingInfo(false);
       setInfoSuccess('Dados salvos com sucesso.');
-    } catch (err) {
-      setInfoError(err.message || 'Erro ao salvar dados.');
+    } catch {
+      setInfoError('Não foi possível salvar os dados. Tente novamente.');
     } finally {
       setSavingInfo(false);
     }
