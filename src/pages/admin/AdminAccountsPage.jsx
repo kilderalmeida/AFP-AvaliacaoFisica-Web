@@ -4,6 +4,7 @@ import { listAccounts, listActivePlans } from '../../services/accountService.js'
 import { getAccountActiveAthleteCount } from '../../services/athleteLinkService.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
+import { ErrorStateCard } from '../../components/feedback/ErrorStateCard.jsx';
 
 const TYPE_LABELS = {
   trainer_account: 'Treinador',
@@ -120,8 +121,12 @@ export default function AdminAccountsPage() {
         )}
       </div>
 
-      {loading && <p style={styles.hint}>Carregando...</p>}
-      {error && <p style={styles.errorText}>{error}</p>}
+      {loading && (
+        <EmptyStateCard title="Carregando..." message="Buscando contas." />
+      )}
+      {!loading && error && (
+        <ErrorStateCard title="Erro ao carregar contas" message={error} onAction={load} />
+      )}
 
       {!loading && !error && accounts.length === 0 && (
         <EmptyStateCard
@@ -296,8 +301,6 @@ const styles = {
     fontSize: '13px',
     color: '#64748b',
   },
-  hint: { color: '#64748b', fontSize: '14px' },
-  errorText: { color: '#dc2626', fontSize: '14px' },
   tableWrapper: {
     overflowX: 'auto',
     borderRadius: '10px',

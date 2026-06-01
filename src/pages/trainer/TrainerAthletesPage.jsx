@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import {
@@ -10,6 +10,7 @@ import { activityService } from '../../services/activity.service.js';
 import { fetchCoachAthletes } from '../../services/coach-athletes-backend.service.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
+import { ErrorStateCard } from '../../components/feedback/ErrorStateCard.jsx';
 
 export default function TrainerAthletesPage() {
   const { user, role } = useAuth();
@@ -23,74 +24,73 @@ export default function TrainerAthletesPage() {
   const [showInactive, setShowInactive] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!user?.uid) return;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        let athleteList;
+    setLoading(true);
+    setError(null);
+    try {
+      let athleteList;
 
-        if (isCoach) {
-          // Coach: fetch from Cloud Function (Admin SDK, bypasses Firestore rules)
-          const coachAthletes = await fetchCoachAthletes(user.uid);
-          const settled = await Promise.allSettled(
-            coachAthletes.map(async (a) => {
-              const activityResult = await Promise.allSettled([
-                activityService.listActivitiesByAthlete(a.uid, { limit: 1 }),
-              ]);
-              const lastActivity =
-                activityResult[0].status === 'fulfilled' ? activityResult[0].value?.[0] ?? null : null;
-              return {
-                uid: a.uid,
-                displayName: a.displayName,
-                email: a.email,
-                trainerUid: a.trainerUid,
-                trainerName: a.trainerName,
-                link: { athleteId: a.uid, trainerId: a.trainerUid, status: 'active' },
-                lastActivity,
-              };
-            })
+      if (isCoach) {
+        // Coach: fetch from Cloud Function (Admin SDK, bypasses Firestore rules)
+        const coachAthletes = await fetchCoachAthletes(user.uid);
+        const settled = await Promise.allSettled(
+          coachAthletes.map(async (a) => {
+            const activityResult = await Promise.allSettled([
+              activityService.listActivitiesByAthlete(a.uid, { limit: 1 }),
+            ]);
+            const lastActivity =
+              activityResult[0].status === 'fulfilled' ? activityResult[0].value?.[0] ?? null : null;
+            return {
+              uid: a.uid,
+              displayName: a.displayName,
+              email: a.email,
+              trainerUid: a.trainerUid,
+              trainerName: a.trainerName,
+              link: { athleteId: a.uid, trainerId: a.trainerUid, status: 'active' },
+              lastActivity,
+            };
+          })
+        );
+        athleteList = settled
+          .filter((r) => r.status === 'fulfilled' && r.value)
+          .map((r) => r.value);
+      } else {
+        // Trainer: existing path via Firestore client SDK
+        const links = await getTrainerActiveAthletes(user.uid);
+        const settled = await Promise.allSettled(
+          links.map(async (link) => {
+            const [profileResult, activityResult] = await Promise.allSettled([
+              getUserProfile(link.athleteId),
+              activityService.listActivitiesByAthlete(link.athleteId, { limit: 1 }),
+            ]);
+            const profile = profileResult.status === 'fulfilled' ? profileResult.value : null;
+            const lastActivity =
+              activityResult.status === 'fulfilled' ? activityResult.value?.[0] ?? null : null;
+            return profile ? { ...profile, link, lastActivity } : null;
+          })
+        );
+        athleteList = settled
+          .filter((r) => r.status === 'fulfilled' && r.value)
+          .map((r) => r.value)
+          .sort((a, b) =>
+            String(a.displayName || a.email || '').localeCompare(
+              String(b.displayName || b.email || ''),
+              'pt-BR'
+            )
           );
-          athleteList = settled
-            .filter((r) => r.status === 'fulfilled' && r.value)
-            .map((r) => r.value);
-        } else {
-          // Trainer: existing path via Firestore client SDK
-          const links = await getTrainerActiveAthletes(user.uid);
-          const settled = await Promise.allSettled(
-            links.map(async (link) => {
-              const [profileResult, activityResult] = await Promise.allSettled([
-                getUserProfile(link.athleteId),
-                activityService.listActivitiesByAthlete(link.athleteId, { limit: 1 }),
-              ]);
-              const profile = profileResult.status === 'fulfilled' ? profileResult.value : null;
-              const lastActivity =
-                activityResult.status === 'fulfilled' ? activityResult.value?.[0] ?? null : null;
-              return profile ? { ...profile, link, lastActivity } : null;
-            })
-          );
-          athleteList = settled
-            .filter((r) => r.status === 'fulfilled' && r.value)
-            .map((r) => r.value)
-            .sort((a, b) =>
-              String(a.displayName || a.email || '').localeCompare(
-                String(b.displayName || b.email || ''),
-                'pt-BR'
-              )
-            );
-        }
-
-        setAthletes(athleteList);
-      } catch (err) {
-        setError('Erro ao carregar atletas.');
-        console.error(err);
-      } finally {
-        setLoading(false);
       }
+
+      setAthletes(athleteList);
+    } catch (err) {
+      setError('Erro ao carregar atletas.');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-    load();
   }, [user?.uid, isCoach]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function handleToggleInactive() {
     const next = !showInactive;
@@ -136,8 +136,12 @@ export default function TrainerAthletesPage() {
         <p style={styles.subtitle}>Atletas vinculados à sua conta.</p>
       </div>
 
-      {loading && <p style={styles.hint}>Carregando...</p>}
-      {error && <p style={styles.errorText}>{error}</p>}
+      {loading && (
+        <EmptyStateCard title="Carregando..." message="Buscando seus atletas." />
+      )}
+      {!loading && error && (
+        <ErrorStateCard title="Erro ao carregar atletas" message={error} onAction={load} />
+      )}
 
       {!loading && !error && athletes.length === 0 && (
         <EmptyStateCard
@@ -264,7 +268,6 @@ const styles = {
   title: { margin: 0, fontSize: '24px', fontWeight: 700, color: '#0f172a' },
   subtitle: { margin: 0, fontSize: '14px', color: '#64748b' },
   hint: { color: '#64748b', fontSize: '14px' },
-  errorText: { color: '#dc2626', fontSize: '14px' },
   grid: { display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' },
   card: {
     background: '#fff',

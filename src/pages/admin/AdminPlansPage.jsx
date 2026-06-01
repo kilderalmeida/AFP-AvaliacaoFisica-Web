@@ -4,6 +4,7 @@ import { listAllPlans, updatePlan } from '../../services/accountService.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
+import { ErrorStateCard } from '../../components/feedback/ErrorStateCard.jsx';
 
 export default function AdminPlansPage() {
   const navigate = useNavigate();
@@ -55,8 +56,12 @@ export default function AdminPlansPage() {
         </button>
       </div>
 
-      {loading && <p style={styles.hint}>Carregando...</p>}
-      {error && <p style={styles.errorText}>{error}</p>}
+      {loading && (
+        <EmptyStateCard title="Carregando..." message="Buscando planos." />
+      )}
+      {!loading && error && (
+        <ErrorStateCard title="Erro ao carregar planos" message={error} onAction={load} />
+      )}
 
       {!loading && !error && plans.length === 0 && (
         <EmptyStateCard
@@ -143,8 +148,6 @@ const styles = {
     cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
-  hint: { color: '#64748b', fontSize: '14px' },
-  errorText: { color: '#dc2626', fontSize: '14px' },
   tableWrapper: {
     overflowX: 'auto',
     borderRadius: '10px',

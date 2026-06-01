@@ -1,6 +1,32 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 e H-27 concluídas; H-28 é a próxima)_
+_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26, H-27 e H-28 concluídas; H-29 é a próxima)_
+
+---
+
+## H-28 — Estados de carregamento e erro padronizados (Wave 7 — concluída)
+
+**Recorte fechado com o usuário:** reusar `EmptyStateCard` (loading) · reusar `ErrorStateCard` com "Tentar novamente" (erro) · só na carga principal de cada tela · retry chama o `load()` existente · sub-cargas e erros de formulário fora de escopo.
+
+**Componentes reaproveitados:** `EmptyStateCard.jsx` e `ErrorStateCard.jsx` (já em uso em Atividades/Dashboard). Nenhum componente novo.
+
+**Arquivos:**
+- `src/pages/admin/AdminAccountsPage.jsx` — loading → `EmptyStateCard`; erro → `ErrorStateCard` `onAction={load}`. Estilos `hint`/`errorText` removidos.
+- `src/pages/admin/AdminPlansPage.jsx` — idem. Estilos `hint`/`errorText` removidos.
+- `src/pages/account/AccountAdminPage.jsx` — loading/erro principal → cards com retry. `hint`/`errorText` mantidos (ainda usados em hints de formulário e no guard de conta).
+- `src/pages/trainer/TrainerAthletesPage.jsx` — `load()` **elevado** de dentro do `useEffect` para um `useCallback` no escopo do componente (para viabilizar o retry); `useEffect(() => { load(); }, [load])`. Loading/erro principal → cards com retry. `errorText` removido; `hint` mantido para a sub-carga "Carregando histórico…".
+
+**Preservação de comportamento (TrainerAthletesPage):** guard `if (!user?.uid) return;` movido para dentro do `useCallback`; deps `[user?.uid, isCoach]` idênticas às do `useEffect` anterior. Com uid ausente, `loading` permanece `true` como antes.
+
+**Notas:**
+- `error` das 4 telas é string → `ErrorStateCard message={error}` (sem `.message`).
+- Sub-cargas (toggle "mostrar inativos") e erros de formulário (`inviteError`, `transferError`, `linkError`, `reactivateError`, `infoError`) **não** foram tocados.
+
+**Sem mudanças em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`.
+
+**Validado:** `npm run build` ✅ 106 módulos, 0 erros.
+
+**Próximo passo:** H-29 — Resumo de card de atleta mais informativo em "Meus Atletas".
 
 ---
 

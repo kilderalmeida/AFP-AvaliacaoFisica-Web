@@ -19,6 +19,7 @@ import { AccountSummaryCard } from '../../components/account/AccountSummaryCard.
 import { AthleteLinksTable } from '../../components/account/AthleteLinksTable.jsx';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
+import { ErrorStateCard } from '../../components/feedback/ErrorStateCard.jsx';
 
 export default function AccountAdminPage() {
   const { user, profile } = useAuth();
@@ -457,8 +458,12 @@ export default function AccountAdminPage() {
         </div>
       </div>
 
-      {loading && <p style={styles.hint}>Carregando...</p>}
-      {error && <p style={styles.errorText}>{error}</p>}
+      {loading && (
+        <EmptyStateCard title="Carregando..." message="Buscando dados da conta." />
+      )}
+      {!loading && error && (
+        <ErrorStateCard title="Erro ao carregar dados da conta" message={error} onAction={load} />
+      )}
 
       {!loading && !error && account && (
         <>

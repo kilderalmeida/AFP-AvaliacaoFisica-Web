@@ -303,6 +303,45 @@ Decisões confirmadas com o usuário:
 
 **Sem mudanças em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`.
 
+## Recorte final fechado — H-28 (2026-06-01)
+
+Decisões confirmadas com o usuário:
+
+| Tópico | Decisão |
+|---|---|
+| Loading | **Reusar `EmptyStateCard`** para o estado de carregamento (igual a Atividades/Dashboard); sem spinner/skeleton novo |
+| Erro | **Reusar `ErrorStateCard`** com `onAction` → botão "Tentar novamente" |
+| Abrangência | **Carga principal** de cada tela; retry chama o `load()` existente |
+
+**Componentes reaproveitados:** `EmptyStateCard.jsx` (loading) e `ErrorStateCard.jsx` (erro+retry) — ambos já em uso na `ActivitiesListPage`/`DashboardPage`. Nenhum componente novo.
+
+**Telas a padronizar (de `<p>` solto → cards):**
+
+| Tela | Loading | Erro + retry | load() acessível? |
+|---|---|---|---|
+| `AdminAccountsPage` | `EmptyStateCard` | `ErrorStateCard` → `load()` | ✅ `useCallback` |
+| `AdminPlansPage` | `EmptyStateCard` | `ErrorStateCard` → `load()` | ✅ `useCallback` |
+| `AccountAdminPage` | `EmptyStateCard` | `ErrorStateCard` → `load()` | ✅ `useCallback` |
+| `TrainerAthletesPage` | `EmptyStateCard` | `ErrorStateCard` → `load()` | ⚠️ `load` está dentro do `useEffect` |
+
+**Ajuste estrutural necessário (TrainerAthletesPage):** elevar o `load()` de dentro do `useEffect` para um `useCallback` no escopo do componente (espelhando as outras três telas), de modo que o botão de retry possa reexecutá-lo. Mudança preservadora de comportamento.
+
+**Notas de implementação:**
+- O `error` das 4 telas é uma string → `ErrorStateCard message={error}` (sem `.message`, diferente da `ActivitiesListPage` que guarda um `Error`).
+- Loading principal substitui o `<p style={styles.hint}>Carregando...</p>`; o `styles.hint`/`errorText` que sobrar sem uso é removido.
+
+**Fora de escopo:** sub-cargas (ex.: toggle "mostrar inativos" do Meus Atletas) e erros de formulário (`inviteError`, `transferError`, `linkError`, `reactivateError`, `infoError`) — não são carregamento de lista.
+
+**Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`.
+
+**H-28 concluída (2026-06-01):** as 4 telas padronizadas.
+- `AdminAccountsPage`, `AdminPlansPage`, `AccountAdminPage`: loading → `EmptyStateCard`; erro → `ErrorStateCard` com retry no `load()` (já `useCallback`).
+- `TrainerAthletesPage`: `load()` elevado de dentro do `useEffect` para `useCallback` (comportamento preservado — guard `!user?.uid` mantido, deps `[user?.uid, isCoach]` idênticas); loading/erro padronizados com retry.
+- Estilos órfãos removidos: `errorText` (TrainerAthletes); `hint`+`errorText` (AdminAccounts, AdminPlans). `styles.hint` mantido no TrainerAthletes para a sub-carga "Carregando histórico…".
+- `npm run build` ✅ (106 módulos, 0 erros).
+
+---
+
 **H-27 concluída (2026-06-01):** todas as 7 listas migradas para `EmptyStateCard`.
 - `TrainerAthletesPage`: ativos e inativos → message-only (trainer não convida).
 - `AccountAdminPage` (Treinadores e Coaches): CTA "+ Convidar" reaproveitando o handler existente.
