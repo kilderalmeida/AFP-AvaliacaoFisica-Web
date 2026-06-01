@@ -1,6 +1,30 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 a H-29 concluídas; H-30 é a próxima)_
+_Atualizado em: 2026-06-01 (Wave 7 — EPIC-9 Polimento de UX; H-26 a H-30 concluídas; H-31 é a próxima)_
+
+---
+
+## H-30 — Organização dos vínculos: busca, ordenação e contagem (Wave 7 — concluída)
+
+**Recorte fechado com o usuário:** controles dentro da `AthleteLinksTable` (estado local) · badge só "Convidado" · ordenar "Mais recente" (padrão) + "Nome (A–Z)" · busca única nome/e-mail client-side · contagem "Mostrando X de Y" · empty real vs busca-sem-resultado separados.
+
+**Arquivo:** `src/components/account/AthleteLinksTable.jsx`
+
+**O que foi feito:**
+- Estado local `search` e `sortBy` (default `'recent'`); helper `tsSeconds(ts)` para ler `.seconds`.
+- Lista derivada `visibleLinks` via `useMemo([links, search, sortBy, isInactive])`: filtro `includes` case-insensitive em `displayName`/`email`; ordenação `recent` por `linkedAt` (Ativos) / `unlinkedAt` (Inativos) desc, ou `name` por `localeCompare('pt-BR')`.
+- Toolbar acima da tabela: input de busca + select (Mais recente / Nome (A–Z)) + "Mostrando {visibleLinks.length} de {links.length}".
+- Badge "Convidado" (`StatusBadge kind="userStatus" value="invited"`) na célula do nome quando `athlete.status === 'invited'` — **fecha o item deslocado da H-26**.
+- Estados vazios separados: lista realmente vazia → `EmptyStateCard` (inalterado, antes do toolbar); busca sem resultado (lista não-vazia) → `<p>` "Nenhum atleta corresponde à busca.".
+- 6 novos estilos: `toolbar`, `search`, `sortSelect`, `count`, `noMatch`, `nameCell`.
+
+**Decisão de natureza:** `AthleteLinksTable` deixou de ser 100% apresentacional (ganhou estado local) — intencional, justificado pelo reuso nas abas Ativos/Inativos. `AccountAdminPage` permaneceu intocada.
+
+**Sem mudanças em:** `AccountAdminPage`, serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados. Tudo client-side.
+
+**Validado:** `npm run build` ✅ 106 módulos, 0 erros.
+
+**Próximo passo:** H-31 — Revisão de microcopy (mensagens de sucesso / erro / confirmação).
 
 ---
 

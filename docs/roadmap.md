@@ -114,8 +114,8 @@ _Refinamento de UX/apresentação, sem novas regras de negócio. Recorte detalha
 | H-27 | Estados vazios (empty states) consistentes nas listas | 7 | **done** |
 | H-28 | Estados de carregamento e erro padronizados nas listas | 7 | **done** |
 | H-29 | Resumo de card de atleta mais informativo em "Meus Atletas" | 7 | **done** |
-| H-30 | Organização dos vínculos: busca, ordenação e contagem | 7 | **next** |
-| H-31 | Revisão de microcopy (mensagens de sucesso / erro / confirmação) | 7 | todo |
+| H-30 | Organização dos vínculos: busca, ordenação e contagem | 7 | **done** |
+| H-31 | Revisão de microcopy (mensagens de sucesso / erro / confirmação) | 7 | **next** |
 | H-32 | Feedback de ações administrativas via banner padronizado | 7 | todo |
 | H-33 | Indicador de uso de plano mais legível no topo da conta | 7 | todo |
 
@@ -154,8 +154,8 @@ Wave 7 — Polimento de UX (EPIC-9 — em andamento)
   H-27  ✅ done  (EmptyStateCard adotado nas listas; CTA onde a ação existe)
   H-28  ✅ done  (EmptyStateCard loading + ErrorStateCard retry nas 4 telas)
   H-29  ✅ done  ("Último check-in" + rótulo de inatividade 14d nos cards ativos)
-  H-30  ⏭ next  (organização dos vínculos)
-  H-31  todo    (microcopy)
+  H-30  ✅ done  (busca/ordenação/contagem + badge "Convidado" na AthleteLinksTable)
+  H-31  ⏭ next  (microcopy)
   H-32  todo    (banner de feedback admin)
   H-33  todo    (indicador de uso de plano)
 ```

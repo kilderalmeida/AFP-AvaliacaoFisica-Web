@@ -356,6 +356,39 @@ Decisões confirmadas com o usuário:
 
 **Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados.
 
+## Recorte final fechado — H-30 (2026-06-01)
+
+Decisões confirmadas com o usuário:
+
+| Tópico | Decisão |
+|---|---|
+| Local dos controles | **Dentro da `AthleteLinksTable`** (estado local); serve as duas abas; `AccountAdminPage` praticamente intocada |
+| Badge | **Só "Convidado"** (quando `athlete.status === 'invited'`) — inclui o badge deslocado da H-26 |
+| Ordenação | **"Mais recente" (padrão)** + "Nome (A–Z)" |
+| Busca | Campo único por **nome e e-mail** (client-side, sobre os dados já carregados) |
+| Contagem | **"Mostrando X de Y"** (filtrados de total, dentro da aba) |
+
+**Comportamento previsto (`AthleteLinksTable`):**
+- Barra acima da tabela: input de busca + select de ordenação + texto "Mostrando X de Y".
+- Filtro: `displayName`/`email` por `includes` case-insensitive.
+- Ordenação: `recent` → por `linkedAt` (aba Ativos) ou `unlinkedAt` (aba Inativos), desc, via `.seconds ?? 0`; `name` → `displayName`/`email` com `localeCompare('pt-BR')`.
+- Badge "Convidado": `StatusBadge kind="userStatus" value="invited"` ao lado do nome quando `athlete.status === 'invited'` (precisa importar `StatusBadge` na tabela).
+- Lista vazia de verdade → `EmptyStateCard` atual (inalterado). Busca sem resultado (lista não-vazia, filtro zera) → mensagem "Nenhum atleta corresponde à busca." (nova, dentro da tabela).
+
+**Mudança de natureza do componente:** `AthleteLinksTable` passa a ter estado local (`search`, `sortBy`) — deixa de ser 100% apresentacional. Contido e justificado pelo reuso nas duas abas.
+
+**Sem mudanças previstas em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados (busca/ordenação 100% client-side).
+
+**H-30 concluída (2026-06-01):** controles client-side na `AthleteLinksTable`.
+- Estado local `search` + `sortBy` (default `recent`); lista derivada via `useMemo`.
+- Toolbar acima da tabela: input de busca (nome/e-mail, `includes` case-insensitive) + select de ordenação + "Mostrando X de Y".
+- Ordenação `recent`: `linkedAt` (Ativos) / `unlinkedAt` (Inativos), desc via `.seconds`; `name`: `localeCompare('pt-BR')`.
+- Badge "Convidado" (`StatusBadge kind="userStatus" value="invited"`) ao lado do nome quando `athlete.status === 'invited'` — fecha o item deslocado da H-26.
+- Empty real → `EmptyStateCard` (inalterado); busca sem resultado → "Nenhum atleta corresponde à busca."
+- `AccountAdminPage` intocada. `npm run build` ✅ (106 módulos, 0 erros).
+
+---
+
 **H-29 concluída (2026-06-01):** resumo de card enriquecido na `TrainerAthletesPage`.
 - Card ativo: "Último check-in: DD/MM/AAAA" + badge de status; rótulo âmbar "Sem atividade há X dias" quando `daysSince(activityDate) > 14`.
 - Sem atividade → mantém "Sem atividades registradas". Cards inativos seguem sem resumo.
