@@ -85,67 +85,67 @@ export function AthleteLinksTable({
       ) : (
         <div style={styles.wrapper}>
           <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={styles.th}>Atleta</th>
-            <th style={styles.th}>E-mail</th>
-            <th style={{ ...styles.th, textAlign: 'right' }}>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visibleLinks.map((link) => (
-            <tr key={link.linkId} style={styles.tr}>
-              <td style={styles.td}>
-                <span style={styles.nameCell}>
-                  {link.athlete?.displayName || '—'}
-                  {link.athlete?.status === 'invited' && (
-                    <StatusBadge kind="userStatus" value="invited" />
-                  )}
-                </span>
-              </td>
-              <td style={{ ...styles.td, color: '#64748b' }}>
-                {link.athlete?.email || link.athleteId}
-              </td>
-              <td style={{ ...styles.td, textAlign: 'right' }}>
-                <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
-                  {!isInactive && link.athlete?.status === 'invited' && onResendInvite && (
-                    <button
-                      style={styles.btnResend}
-                      onClick={() => onResendInvite(link.athlete.email)}
-                      disabled={resendingEmail === link.athlete.email}
-                    >
-                      {resendingEmail === link.athlete.email ? 'Enviando…' : 'Reenviar convite'}
-                    </button>
-                  )}
-                  {!isInactive && onTransfer && (
-                    <button
-                      style={styles.btnTransfer}
-                      onClick={() => onTransfer(link)}
-                    >
-                      Transferir
-                    </button>
-                  )}
-                  {isInactive ? (
-                    <button
-                      style={styles.btnReactivate}
-                      onClick={() => onReactivate(link)}
-                      disabled={reactivatingId === link.linkId}
-                    >
-                      {reactivatingId === link.linkId ? 'Reativando…' : 'Reativar'}
-                    </button>
-                  ) : (
-                    <button
-                      style={styles.btnDeactivate}
-                      onClick={() => onDeactivate(link)}
-                      disabled={unlinkingId === link.linkId}
-                    >
-                      {unlinkingId === link.linkId ? 'Desvinculando…' : 'Desvincular'}
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
+            <thead>
+              <tr>
+                <th style={styles.th}>Atleta</th>
+                <th style={styles.th}>E-mail</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleLinks.map((link) => (
+                <tr key={link.linkId} style={styles.tr}>
+                  <td style={styles.td}>
+                    <span style={styles.nameCell}>
+                      {link.athlete?.displayName || '—'}
+                      {link.athlete?.status === 'invited' && (
+                        <StatusBadge kind="userStatus" value="invited" />
+                      )}
+                    </span>
+                  </td>
+                  <td style={{ ...styles.td, color: '#64748b' }}>
+                    {link.athlete?.email || link.athleteId}
+                  </td>
+                  <td style={{ ...styles.td, textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                      {!isInactive && link.athlete?.status === 'invited' && onResendInvite && (
+                        <button
+                          style={styles.btnResend}
+                          onClick={() => onResendInvite(link.athlete.email)}
+                          disabled={resendingEmail === link.athlete.email}
+                        >
+                          {resendingEmail === link.athlete.email ? 'Enviando…' : 'Reenviar convite'}
+                        </button>
+                      )}
+                      {!isInactive && onTransfer && (
+                        <button
+                          style={styles.btnTransfer}
+                          onClick={() => onTransfer(link)}
+                        >
+                          Transferir
+                        </button>
+                      )}
+                      {isInactive ? (
+                        <button
+                          style={styles.btnReactivate}
+                          onClick={() => onReactivate(link)}
+                          disabled={reactivatingId === link.linkId}
+                        >
+                          {reactivatingId === link.linkId ? 'Reativando…' : 'Reativar'}
+                        </button>
+                      ) : (
+                        <button
+                          style={styles.btnDeactivate}
+                          onClick={() => onDeactivate(link)}
+                          disabled={unlinkingId === link.linkId}
+                        >
+                          {unlinkingId === link.linkId ? 'Desvinculando…' : 'Desvincular'}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
