@@ -8,6 +8,7 @@ import {
 import { getUserProfile } from '../../services/userService.js';
 import { activityService } from '../../services/activity.service.js';
 import { fetchCoachAthletes } from '../../services/coach-athletes-backend.service.js';
+import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 
 export default function TrainerAthletesPage() {
   const { user, role } = useAuth();
@@ -163,15 +164,7 @@ export default function TrainerAthletesPage() {
                     <span style={styles.activityDate}>
                       {formatDate(a.lastActivity.activityDate)}
                     </span>
-                    <span
-                      style={
-                        a.lastActivity.status === 'open'
-                          ? styles.badgeOpen
-                          : styles.badgeDone
-                      }
-                    >
-                      {a.lastActivity.status === 'open' ? 'Em andamento' : 'Concluída'}
-                    </span>
+                    <StatusBadge kind="activity" value={a.lastActivity.status} />
                   </>
                 ) : (
                   <span style={styles.activityNone}>Sem atividades registradas</span>
@@ -221,7 +214,7 @@ export default function TrainerAthletesPage() {
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                             <p style={{ ...styles.name, color: '#94a3b8' }}>{a.displayName || '—'}</p>
-                            <span style={styles.inactiveBadge}>Inativo</span>
+                            <StatusBadge kind="userStatus" value="inactive" />
                           </div>
                           <p style={styles.email}>{a.email}</p>
                         </div>
@@ -311,34 +304,8 @@ const styles = {
     color: '#475569',
   },
   activityDate: { color: '#475569' },
-  badgeOpen: {
-    padding: '2px 8px',
-    borderRadius: '999px',
-    background: '#dbeafe',
-    color: '#1d4ed8',
-    fontSize: '11px',
-    fontWeight: 700,
-  },
-  badgeDone: {
-    padding: '2px 8px',
-    borderRadius: '999px',
-    background: '#dcfce7',
-    color: '#166534',
-    fontSize: '11px',
-    fontWeight: 700,
-  },
   activityNone: { color: '#94a3b8', fontStyle: 'italic' },
   cardActions: { display: 'flex', gap: '8px' },
-  inactiveBadge: {
-    padding: '2px 8px',
-    borderRadius: '999px',
-    background: '#f1f5f9',
-    color: '#64748b',
-    fontSize: '11px',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  },
   unlinkedDate: {
     margin: 0,
     fontSize: '12px',

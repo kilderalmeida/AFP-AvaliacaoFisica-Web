@@ -1,6 +1,6 @@
 # AFP Web — Roadmap técnico
 
-_Atualizado em: 2026-05-30 (Wave 6 completa — H-22 a H-25; Admin Operacional deployado)_
+_Atualizado em: 2026-06-01 (Wave 7 registrada — EPIC-9 Polimento de UX, H-26 a H-33; H-26 é a próxima história, aguardando fechamento do recorte)_
 
 ---
 
@@ -104,6 +104,21 @@ _Atualizado em: 2026-05-30 (Wave 6 completa — H-22 a H-25; Admin Operacional d
 | H-19 | CheckOut: calcular duração automaticamente | 5 | **done** |
 | H-20 | Meus Atletas: resumo de atividade recente por card | 5 | **done** |
 
+### EPIC-9 — Polimento de UX (Wave 7)
+
+_Refinamento de UX/apresentação, sem novas regras de negócio. Recorte detalhado em `docs/wave7-proposal.md`. Nenhuma história desta wave altera `firestore.rules`, `firestore.indexes.json` ou `functions/`._
+
+| ID | Título | Wave | Status |
+|---|---|---|---|
+| H-26 | Componente único de badge de status (papel / status / atividade) | 7 | **done** |
+| H-27 | Estados vazios (empty states) consistentes nas listas | 7 | **next** |
+| H-28 | Estados de carregamento e erro padronizados nas listas | 7 | todo |
+| H-29 | Resumo de card de atleta mais informativo em "Meus Atletas" | 7 | todo |
+| H-30 | Organização dos vínculos: busca, ordenação e contagem | 7 | todo |
+| H-31 | Revisão de microcopy (mensagens de sucesso / erro / confirmação) | 7 | todo |
+| H-32 | Feedback de ações administrativas via banner padronizado | 7 | todo |
+| H-33 | Indicador de uso de plano mais legível no topo da conta | 7 | todo |
+
 ---
 
 ## Waves de implementação
@@ -133,6 +148,16 @@ Wave 6 — Admin Operacional
   H-23  ✅ done  (editar conta — plano, override, status)
   H-24  ✅ done  (coaches na seção de treinadores + badge papel)
   H-25  ✅ done  (desativar/reativar trainer ou coach)
+
+Wave 7 — Polimento de UX (EPIC-9 — em andamento)
+  H-26  ✅ done  (StatusBadge — Conta, Meus Atletas, Admin contas e planos)
+  H-27  ⏭ next  (empty states)
+  H-28  todo    (loading / erro padronizados)
+  H-29  todo    (resumo de card de atleta)
+  H-30  todo    (organização dos vínculos)
+  H-31  todo    (microcopy)
+  H-32  todo    (banner de feedback admin)
+  H-33  todo    (indicador de uso de plano)
 ```
 
 ---

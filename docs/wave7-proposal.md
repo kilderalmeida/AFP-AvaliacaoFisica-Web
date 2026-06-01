@@ -1,0 +1,282 @@
+# AFP Web — Proposta de Wave 7 (Polimento de produto / UX)
+
+_Criado em: 2026-06-01 — proposta de planejamento. Ainda **não** iniciada._
+
+---
+
+## 1. Proposta de Wave 7
+
+Após as Waves 1–6 (que entregaram todo o fluxo funcional: cadastro, vínculos,
+gestão de conta, admin operacional e de plataforma), a Wave 7 dedica-se
+exclusivamente a **refinamento de UX e apresentação**, sem novas regras de
+negócio.
+
+**Objetivo:** elevar a percepção de qualidade das telas já existentes com
+melhorias pequenas, visíveis e de baixo risco — textos, badges, resumos de
+card, feedbacks de estado (vazio/carregando/erro), organização dos vínculos e
+das telas administrativas.
+
+**O que esta wave NÃO é:**
+
+- Não é uma rodada completa de QA — bugs encontrados de passagem viram histórias
+  próprias, fora desta wave.
+- Não introduz coleções, índices, regras Firestore ou Cloud Functions novas.
+- Não altera modelo de dados nem contratos de back-end.
+- Não antecipa funcionalidades das evoluções futuras (notificações, relatórios,
+  exportação, onboarding guiado).
+
+**Princípios da wave (alinhados ao `CLAUDE.md`):**
+
+| Princípio | Aplicação na Wave 7 |
+|---|---|
+| Uma história por vez | Cada H-xx é independente e fechável isoladamente |
+| Escopo estrito | Mudança visual/copy; sem refator além do necessário |
+| Sem decisão arquitetural silenciosa | Qualquer necessidade de nova regra/índice → parar e consultar |
+| Sem tocar em regras Firestore | Nenhuma história desta wave exige alteração de `firestore.rules` |
+| UI em pt-BR, código em inglês | Mantido |
+
+**Critério de pronto comum a todas as histórias:**
+
+- `npm run build` sem erros.
+- Sem regressão visual nas demais telas (verificação manual rápida).
+- Nenhuma alteração em `firestore.rules` / `firestore.indexes.json` / `functions/`.
+- `roadmap.md` e `handoff.md` atualizados ao concluir.
+
+---
+
+## 2. Backlog priorizado
+
+Prioridade considera **impacto visível × baixo risco × independência**.
+Histórias de fundação (componentes de badge e estados) vêm primeiro porque as
+demais reaproveitam o resultado.
+
+| Prioridade | ID | Título | Risco | Esforço |
+|---|---|---|---|---|
+| 1 | H-26 | Componente único de badge de status (papel / status / atividade) | Baixo | P |
+| 2 | H-27 | Estados vazios (empty states) consistentes nas listas | Baixo | P |
+| 3 | H-28 | Estados de carregamento e erro padronizados nas listas | Baixo | M |
+| 4 | H-29 | Resumo de card de atleta mais informativo em "Meus Atletas" | Baixo | P |
+| 5 | H-30 | Organização dos vínculos: busca, ordenação e contagem | Baixo | M |
+| 6 | H-31 | Revisão de microcopy (mensagens de sucesso / erro / confirmação) | Muito baixo | P |
+| 7 | H-32 | Feedback de ações administrativas via banner padronizado | Baixo | M |
+| 8 | H-33 | Indicador de uso de plano mais legível no topo da conta | Baixo | P |
+
+> P = pequeno (poucas horas), M = médio (meia diária a uma diária).
+
+---
+
+## 3. Descrição curta de cada história
+
+### H-26 — Componente único de badge de status
+
+Hoje os badges (papel `trainer`/`coach`, status `convidado`/`ativo`/`inativo`,
+atividade `aberta`/`concluída`) são reimplementados inline em
+`AccountAdminPage`, `TrainerAthletesPage`, `AdminAccountsPage`, etc., com cores
+levemente divergentes. Criar um único componente `StatusBadge` (variantes por
+tipo) e trocar as ocorrências existentes — **sem inventar variantes novas**, só
+consolidando as que já existem.
+
+### H-27 — Estados vazios consistentes
+
+Listas que podem vir vazias (Meus Atletas, Atividades, Treinadores e Coaches,
+Admin de contas, Admin de planos, vínculos inativos) mostram hoje "nada" ou um
+texto solto. Padronizar um bloco de **empty state** (ícone simples + frase
+explicativa + CTA quando fizer sentido, ex.: "+ Convidar atleta").
+
+### H-28 — Estados de carregamento e erro padronizados
+
+Padronizar o feedback de **carregando** (spinner/skeleton simples e
+consistente) e de **erro com botão "Tentar novamente"** nas mesmas listas.
+Aproveitar os retries que já existem (ex.: `ActivitiesListPage`) e dar a eles
+uma apresentação uniforme.
+
+### H-29 — Resumo de card de atleta mais informativo
+
+Estender o resumo introduzido na H-20 em "Meus Atletas": além da última
+atividade + badge, exibir de forma compacta a **data do último check-in** e um
+rótulo de inatividade quando aplicável (ex.: "Sem atividade há 14 dias"). Sem
+novas queries pesadas — reutiliza o que `listActivitiesByAthlete({ limit: 1 })`
+já traz.
+
+### H-30 — Organização dos vínculos
+
+Na tabela de vínculos (`AthleteLinksTable` / aba Ativos e Inativos): adicionar
+**campo de busca por nome/e-mail**, **ordenação** (nome A–Z, mais recente) e
+**contagem visível** ("Mostrando X de Y"). Filtragem client-side sobre os dados
+já carregados — sem query adicional.
+
+### H-31 — Revisão de microcopy
+
+Varredura de **textos pt-BR** das mensagens de sucesso, erro e confirmação nas
+telas operacionais e administrativas: padronizar tom (impessoal, direto),
+corrigir inconsistências e tornar mensagens de erro acionáveis ("O e-mail já
+está em uso. Use 'Reenviar convite'."). Apenas strings — sem mudança de lógica.
+
+### H-32 — Feedback de ações administrativas via banner padronizado
+
+Padronizar o feedback pós-ação (convidar, desativar/reativar, transferir,
+editar conta) num **banner de feedback reutilizável** (sucesso/erro), eliminando
+divergências entre telas. Mantém o uso de `confirm()` nativo onde já existe —
+**não** introduz biblioteca de toast nem modal customizado nesta wave.
+
+### H-33 — Indicador de uso de plano mais legível
+
+Refinar a apresentação do `AccountSummaryCard`: deixar o **"X de Y atletas
+ativos"** e o estado de limite mais legíveis no topo da tela de conta (hierarquia
+visual, cor da barra já existente, microcopy do limite). Sem mudança de cálculo
+nem de dados.
+
+---
+
+## 4. Critérios de aceite
+
+### H-26 — Componente único de badge de status
+
+- [ ] Existe `src/components/ui/StatusBadge.jsx` (ou equivalente) com variantes
+      para os tipos já em uso: papel (`trainer`/`coach`), status de usuário
+      (`invited`/`active`/`inactive`) e status de atividade (`open`/`completed`).
+- [ ] `AccountAdminPage`, `TrainerAthletesPage`, `AdminAccountsPage`,
+      `AdminPlansPage` e `AthleteLinksTable` usam o componente — sem badges
+      inline duplicados.
+- [ ] Cores/labels finais são consistentes entre todas as telas.
+- [ ] Nenhuma variante nova de status foi inventada; só consolidação.
+- [ ] `npm run build` sem erros; sem regressão visual.
+
+### H-27 — Estados vazios consistentes
+
+- [ ] Componente de empty state reutilizável criado.
+- [ ] Aplicado em: Meus Atletas (ativos e inativos), Atividades, Treinadores e
+      Coaches, Admin de contas, Admin de planos.
+- [ ] Cada empty state tem frase explicativa em pt-BR; CTA presente onde a ação
+      existe na tela (ex.: convidar).
+- [ ] Listas com dados continuam renderizando normalmente.
+
+### H-28 — Estados de carregamento e erro padronizados
+
+- [ ] Indicador de carregamento consistente nas listas citadas.
+- [ ] Estado de erro mostra mensagem + botão "Tentar novamente" que re-executa o
+      carregamento.
+- [ ] Reaproveita os caminhos de retry existentes (ex.: `ActivitiesListPage`)
+      sem duplicar lógica.
+- [ ] Transições carregando → vazio → conteúdo → erro funcionam sem flicker
+      perceptível.
+
+### H-29 — Resumo de card de atleta mais informativo
+
+- [ ] Card de atleta ativo exibe última atividade + badge (H-20) **e** data do
+      último check-in.
+- [ ] Rótulo de inatividade aparece quando não há atividade recente
+      (regra de corte definida no código, ex.: 14 dias).
+- [ ] Sem novas queries além das já feitas no `load()` (limit 1).
+- [ ] Comportamento idêntico para trainer e coach; cards inativos sem resumo.
+
+### H-30 — Organização dos vínculos
+
+- [ ] Campo de busca filtra por nome e e-mail (client-side, sobre dados já
+      carregados).
+- [ ] Ordenação disponível (mínimo: nome A–Z e mais recente).
+- [ ] Contagem "Mostrando X de Y" visível e correta com filtro ativo.
+- [ ] Abas Ativos/Inativos mantêm comportamento atual; nenhuma query Firestore
+      adicional.
+
+### H-31 — Revisão de microcopy
+
+- [ ] Mensagens de sucesso/erro/confirmação das telas operacionais e admin
+      revisadas e consistentes em tom.
+- [ ] Mensagens de erro acionáveis quando há ação de saída (ex.: e-mail já em
+      uso → orienta reenviar convite).
+- [ ] Apenas strings alteradas — nenhuma mudança de fluxo ou condição.
+- [ ] Sem texto em inglês exposto na UII; código permanece em inglês.
+
+### H-32 — Feedback de ações administrativas via banner padronizado
+
+- [ ] Banner de feedback reutilizável (sucesso/erro) aplicado às ações de
+      convidar, desativar/reativar, transferir e editar conta.
+- [ ] Apresentação uniforme entre telas (posição, cor, dismiss).
+- [ ] `confirm()` nativo mantido onde já existe; nenhuma lib nova adicionada.
+- [ ] Sem mudança nas chamadas de serviço subjacentes.
+
+### H-33 — Indicador de uso de plano mais legível
+
+- [ ] Topo da tela de conta destaca "X de Y atletas ativos" com hierarquia
+      visual clara.
+- [ ] Estado de limite atingido permanece evidente (reusa cores/CTA existentes).
+- [ ] Nenhuma mudança em `canAddAthlete`, `AccountSummaryCard` lógica de cálculo,
+      ou dados do plano.
+- [ ] `npm run build` sem erros.
+
+---
+
+## 5. Ordem sugerida de execução
+
+A ordem segue a prioridade do backlog, com as **histórias de fundação primeiro**
+para que as demais reaproveitem os componentes:
+
+```
+1. H-26  Componente de badge          (base visual — reusado por H-27, H-29, H-30)
+2. H-27  Empty states                 (base de feedback — pareia com H-28)
+3. H-28  Loading / erro padronizados  (fecha o trio de estados das listas)
+4. H-29  Resumo de card de atleta     (usa badge de H-26)
+5. H-30  Organização dos vínculos     (usa badge/estados das anteriores)
+6. H-31  Microcopy                     (independente; baixo risco; pode entrar a qualquer momento)
+7. H-32  Banner de feedback admin      (consolida feedback das telas admin)
+8. H-33  Indicador de uso de plano     (refinamento isolado; bom encerramento)
+```
+
+**Notas de sequenciamento:**
+
+- H-26 → H-27 → H-28 formam a base de UI; concluí-las primeiro evita retrabalho
+  visual nas seguintes.
+- H-31 (microcopy) é totalmente independente e pode ser intercalada se houver
+  janela curta entre histórias maiores.
+- Nenhuma história depende de back-end; todas são fecháveis com `npm run build` +
+  verificação manual.
+
+---
+
+## Recorte final fechado — H-26 (2026-06-01)
+
+Decisões confirmadas com o usuário:
+
+| Tópico | Decisão |
+|---|---|
+| Abstração vs inline | **Abstração mínima** — componente `StatusBadge` (reuso real já existente) |
+| API | **Semântica por domínio** — `<StatusBadge kind="..." value="..." />`; label pt-BR + cor vivem no componente |
+| 1ª leva | **Conta + Meus Atletas** — `AccountAdminPage` e `TrainerAthletesPage` |
+
+**Componente:** `src/components/ui/StatusBadge.jsx`
+- Tons: `success` / `neutral` / `info` / `warning` / `accent`
+- Domínios (`kind` → `value` → label/tone):
+  - `userStatus`: invited→Convidado (warning), active→Ativo (success), inactive→Inativo (neutral)
+  - `role`: trainer→Trainer (info), coach→Coach (accent)
+  - `activity`: open→Em andamento (info), completed→Concluída (success)
+- Pill padronizado: `3px 10px` / `12px` / `weight 600` / `radius 999px` (uniformiza divergências de tamanho/peso e remove o uppercase do badge de inativo)
+- Fallback: valor desconhecido renderiza o `value` cru com tom neutro
+
+**Aplicado (1ª leva — feito):**
+- `AccountAdminPage`: badge de papel (trainer/coach) e badge de status de usuário → `StatusBadge`; helpers `trainerStatusLabel`/`trainerStatusStyle` e estilos `badgeTrainer`/`badgeCoach` removidos
+- `TrainerAthletesPage`: badge de atividade (open/completed) e badge de atleta inativo → `StatusBadge`; estilos `badgeOpen`/`badgeDone`/`inactiveBadge` removidos
+- `npm run build` ✅ (106 módulos, 0 erros)
+
+**Ajuste de escopo registrado:**
+- `AthleteLinksTable` **não tem badge hoje** (só nome + e-mail + botões; `status === 'invited'` apenas controla o botão "Reenviar convite"). Adicionar um badge "Convidado" ali seria comportamento **novo**, não consolidação — movido para a **H-30** (Organização dos vínculos), onde a tabela já será mexida.
+
+**2ª leva (telas admin — feito):**
+- Decisão: reusar `kind="userStatus"` (sem `kind` novo), mantendo os labels "Ativo/Inativo" já existentes.
+- `AdminAccountsPage`: badge de status → `StatusBadge`; helpers `statusStyle`/`statusLabel` removidos. Preservado o default defensivo (status ausente → "Ativo") via `value={acc.status === 'inactive' ? 'inactive' : 'active'}`.
+- `AdminPlansPage`: badge `isActive` → `StatusBadge value={plan.isActive ? 'active' : 'inactive'}`; estilos `badgeActive`/`badgeInactive` removidos.
+- `npm run build` ✅ (106 módulos, 0 erros).
+
+**H-26 concluída** — todos os badges inline das 4 telas migrados para `StatusBadge`; nenhuma duplicação remanescente.
+
+---
+
+## Próximo passo
+
+Esta é uma **proposta**. Para iniciar a Wave 7:
+
+1. Aprovar o backlog e a ordem acima.
+2. Registrar as histórias H-26…H-33 em `docs/roadmap.md` (novo EPIC-9 —
+   Polimento de UX / Wave 7), com status `todo`.
+3. Marcar H-26 como `doing` e implementar seguindo as regras do `CLAUDE.md`
+   (uma história por vez, escopo estrito).

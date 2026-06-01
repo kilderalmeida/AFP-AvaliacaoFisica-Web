@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listAllPlans, updatePlan } from '../../services/accountService.js';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 
 export default function AdminPlansPage() {
   const navigate = useNavigate();
@@ -86,9 +87,7 @@ export default function AdminPlansPage() {
                     {plan.activeAthleteLimit ?? '—'}
                   </td>
                   <td style={{ ...styles.td, textAlign: 'center' }}>
-                    <span style={plan.isActive ? styles.badgeActive : styles.badgeInactive}>
-                      {plan.isActive ? 'Ativo' : 'Inativo'}
-                    </span>
+                    <StatusBadge kind="userStatus" value={plan.isActive ? 'active' : 'inactive'} />
                   </td>
                   <td style={{ ...styles.td, textAlign: 'right' }}>
                     <div style={styles.actions}>
@@ -158,24 +157,6 @@ const styles = {
   td: { padding: '12px 14px', color: '#0f172a', verticalAlign: 'middle' },
   planName: { display: 'block', fontWeight: 600 },
   planId: { display: 'block', fontSize: '11px', color: '#94a3b8', marginTop: '2px' },
-  badgeActive: {
-    display: 'inline-block',
-    padding: '3px 10px',
-    borderRadius: '999px',
-    fontSize: '12px',
-    fontWeight: 600,
-    background: '#dcfce7',
-    color: '#166534',
-  },
-  badgeInactive: {
-    display: 'inline-block',
-    padding: '3px 10px',
-    borderRadius: '999px',
-    fontSize: '12px',
-    fontWeight: 600,
-    background: '#f1f5f9',
-    color: '#475569',
-  },
   actions: { display: 'inline-flex', gap: '8px', alignItems: 'center' },
   btnEdit: {
     padding: '5px 12px',

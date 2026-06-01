@@ -1,6 +1,29 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-05-30 (Wave 6 completa — H-22 a H-25; Admin Operacional)_
+_Atualizado em: 2026-06-01 (Wave 7 aberta — EPIC-9 Polimento de UX; H-26 concluída; H-27 é a próxima)_
+
+---
+
+## H-26 — Componente único de badge de status (Wave 7 — concluída)
+
+**Recorte fechado com o usuário:** abstração mínima (componente) · API semântica por domínio · reuso de `kind="userStatus"` para conta/plano. Detalhe completo em `docs/wave7-proposal.md`.
+
+**Arquivos:**
+- `src/components/ui/StatusBadge.jsx` — NOVO. API `<StatusBadge kind value />`. Tons: success/neutral/info/warning/accent. Domínios: `userStatus` (invited/active/inactive), `role` (trainer/coach), `activity` (open/completed). Fallback: valor cru + tom neutro.
+- `src/pages/account/AccountAdminPage.jsx` — badges de papel e status → `StatusBadge`; removidos `trainerStatusLabel`/`trainerStatusStyle` e estilos `badgeTrainer`/`badgeCoach`.
+- `src/pages/trainer/TrainerAthletesPage.jsx` — badges de atividade e atleta inativo → `StatusBadge`; removidos `badgeOpen`/`badgeDone`/`inactiveBadge`.
+- `src/pages/admin/AdminAccountsPage.jsx` — badge de status → `StatusBadge` (default defensivo de "Ativo" preservado); removidos `statusStyle`/`statusLabel`.
+- `src/pages/admin/AdminPlansPage.jsx` — badge `isActive` → `StatusBadge`; removidos `badgeActive`/`badgeInactive`.
+
+**Padronizações aplicadas:** pill único `3px 10px / 12px / weight 600 / radius 999px`; removido o uppercase solto do badge de atleta inativo; cinza de inativo unificado em `#475569`.
+
+**Ajuste de escopo:** `AthleteLinksTable` não tinha badge — adicionar um "Convidado" para atletas é comportamento novo, **movido para H-30** (onde a tabela será mexida).
+
+**Sem mudanças em:** serviços, `firestore.rules`, `firestore.indexes.json`, `functions/`.
+
+**Validado:** `npm run build` ✅ 106 módulos, 0 erros.
+
+**Próximo passo:** H-27 — Estados vazios (empty states) consistentes nas listas.
 
 ---
 

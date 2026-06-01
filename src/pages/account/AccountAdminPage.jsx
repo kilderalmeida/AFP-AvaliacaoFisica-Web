@@ -17,6 +17,7 @@ import {
 import { createUser, getUserProfile, listUsers, sendInviteEmail, toggleUserStatus } from '../../services/userService.js';
 import { AccountSummaryCard } from '../../components/account/AccountSummaryCard.jsx';
 import { AthleteLinksTable } from '../../components/account/AthleteLinksTable.jsx';
+import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 
 export default function AccountAdminPage() {
   const { user, profile } = useAuth();
@@ -646,15 +647,11 @@ export default function AccountAdminPage() {
                       <td style={styles.trainerTd}>{t.displayName || '—'}</td>
                       <td style={{ ...styles.trainerTd, color: '#64748b' }}>{t.email}</td>
                       <td style={styles.trainerTd}>
-                        <span style={t.papel === 'coach' ? styles.badgeCoach : styles.badgeTrainer}>
-                          {t.papel === 'coach' ? 'Coach' : 'Trainer'}
-                        </span>
+                        <StatusBadge kind="role" value={t.papel} />
                       </td>
                       <td style={{ ...styles.trainerTd, textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
-                          <span style={trainerStatusStyle(t.status)}>
-                            {trainerStatusLabel(t.status)}
-                          </span>
+                          <StatusBadge kind="userStatus" value={t.status} />
                           {t.status === 'invited' && (
                             <button
                               style={styles.btnResend}
@@ -907,20 +904,6 @@ function InfoRow({ label, value }) {
   );
 }
 
-function trainerStatusLabel(status) {
-  if (status === 'invited') return 'Convidado';
-  if (status === 'active') return 'Ativo';
-  if (status === 'inactive') return 'Inativo';
-  return status || '—';
-}
-
-function trainerStatusStyle(status) {
-  const base = { padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600 };
-  if (status === 'invited') return { ...base, background: '#fef9c3', color: '#854d0e' };
-  if (status === 'active') return { ...base, background: '#dcfce7', color: '#166534' };
-  return { ...base, background: '#f1f5f9', color: '#475569' };
-}
-
 const styles = {
   page: {
     display: 'grid',
@@ -1086,22 +1069,6 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
-  },
-  badgeTrainer: {
-    padding: '2px 8px',
-    borderRadius: '999px',
-    background: '#dbeafe',
-    color: '#1d4ed8',
-    fontSize: '11px',
-    fontWeight: 700,
-  },
-  badgeCoach: {
-    padding: '2px 8px',
-    borderRadius: '999px',
-    background: '#ede9fe',
-    color: '#7c3aed',
-    fontSize: '11px',
-    fontWeight: 700,
   },
   btnDeactivate: {
     padding: '4px 10px',

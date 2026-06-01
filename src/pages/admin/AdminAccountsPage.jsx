@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listAccounts, listActivePlans } from '../../services/accountService.js';
 import { getAccountActiveAthleteCount } from '../../services/athleteLinkService.js';
+import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
 
 const TYPE_LABELS = {
   trainer_account: 'Treinador',
@@ -172,9 +173,7 @@ export default function AdminAccountsPage() {
                     </td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={statusStyle(acc.status)}>
-                          {statusLabel(acc.status)}
-                        </span>
+                        <StatusBadge kind="userStatus" value={acc.status === 'inactive' ? 'inactive' : 'active'} />
                         <button
                           style={styles.btnEdit}
                           onClick={(e) => {
@@ -219,16 +218,6 @@ function UsageBar({ count, limit }) {
   );
 }
 
-function statusLabel(status) {
-  if (status === 'inactive') return 'Inativo';
-  return 'Ativo';
-}
-
-function statusStyle(status) {
-  const base = { padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600 };
-  if (status === 'inactive') return { ...base, background: '#f1f5f9', color: '#475569' };
-  return { ...base, background: '#dcfce7', color: '#166534' };
-}
 
 const styles = {
   page: { display: 'grid', gap: '20px', padding: '24px', maxWidth: '960px', margin: '0 auto' },
