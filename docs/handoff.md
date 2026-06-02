@@ -1,6 +1,27 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-06-01 (Wave 7 COMPLETA — EPIC-9 Polimento de UX; H-26 a H-33 todas concluídas)_
+_Atualizado em: 2026-06-02 (bugfix Check-out — sessão aberta por escopo de trainer; Wave 7 completa)_
+
+---
+
+## Bugfix — Check-out não encontrava sessão aberta para trainer/coach (2026-06-02)
+
+**Commit:** `205f48d` `fix(checkout): load open activity by trainer scope for coach/trainer users`
+
+**Bug (pré-existente, anterior à Wave 7; impacta o fluxo principal de Check-in/Check-out):**
+- Após o Check-in de um atleta, o Check-out (mesmo atleta selecionado) dizia "nenhuma sessão em aberto".
+- Causa: `CheckOutPage` buscava a sessão via `listActivitiesByAthlete(athleteId, { status:'open' })` — query filtrada **só** por `athleteUserId`. A regra Firestore de `activities` (list) exige `athleteUserId == auth.uid || trainerUserId == auth.uid`; como a query de um trainer não restringe `trainerUserId`, o Firestore **nega a query** (`permission-denied`) → `openActivity` zerado.
+- O Check-in já usava o caminho correto (`listActivitiesByTrainer`, que restringe `trainerUserId == auth.uid`) — daí as duas telas se contradiziam.
+
+**Correção (`src/pages/CheckOutPage.jsx`, 2 pontos de lookup — `onAuthStateChanged` e `syncOpenActivity`):**
+- trainer/coach → `listActivitiesByTrainer(actorUid, { athleteUserId, status:'open', limit:1, includeLinkedAthletes:false })` (mesmo shape do Check-in / `resolveEligibility`).
+- atleta (self) → mantém `listActivitiesByAthlete(uid, { status:'open' })`.
+
+**Sem mudanças em:** `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo. Reusa query já exercida pelo Check-in (nenhum índice novo).
+
+**Validado:** `npm run build` ✅ (107 módulos); `test:rules:emulator` ✅ 21/21; `test:coach-flow:emulator` ✅ 26/26. Verificação manual definitiva = repro do trainer (Check-in → Check-out acha a sessão).
+
+**Deploy:** ainda **não** publicado — aguardando smoke test manual + aprovação explícita do usuário.
 
 ---
 
