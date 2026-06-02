@@ -146,10 +146,19 @@ export default function CheckOutPage() {
           return;
         }
 
-        const activities = await activityService.listActivitiesByAthlete(targetAthleteId, {
-          status: 'open',
-          limit: 1,
-        });
+        const isTrainerOrCoach =
+          normalizedProfileType === 'trainer' || normalizedProfileType === 'coach';
+        const activities = isTrainerOrCoach
+          ? await activityService.listActivitiesByTrainer(currentUser.uid, {
+              athleteUserId: targetAthleteId,
+              status: 'open',
+              limit: 1,
+              includeLinkedAthletes: false,
+            })
+          : await activityService.listActivitiesByAthlete(targetAthleteId, {
+              status: 'open',
+              limit: 1,
+            });
         setOpenActivity(Array.isArray(activities) ? activities[0] || null : null);
       } catch (err) {
         console.error(err);
@@ -185,9 +194,11 @@ export default function CheckOutPage() {
         setLoading(true);
         setError('');
 
-        const activities = await activityService.listActivitiesByAthlete(selectedAthleteId, {
+        const activities = await activityService.listActivitiesByTrainer(user.uid, {
+          athleteUserId: selectedAthleteId,
           status: 'open',
           limit: 1,
+          includeLinkedAthletes: false,
         });
         setOpenActivity(Array.isArray(activities) ? activities[0] || null : null);
       } catch (err) {
