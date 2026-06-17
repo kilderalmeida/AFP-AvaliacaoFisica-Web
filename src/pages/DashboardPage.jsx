@@ -11,6 +11,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase/config.js';
+import { authService } from '../services/auth/authService.js';
 import './DashboardPage.css';
 import { EmptyStateCard } from '../components/feedback/EmptyStateCard';
 import { ErrorStateCard } from '../components/feedback/ErrorStateCard';
@@ -771,6 +772,24 @@ export default function DashboardPage() {
           <h1 style={styles.title} className="dashboard-title">Dashboard</h1>
           <p style={styles.subtitle} className="dashboard-subtitle">Olá, {displayName}</p>
         </div>
+        <button
+          onClick={async () => {
+            await authService.logout();
+            navigate('/login');
+          }}
+          style={{
+            background: 'none',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            padding: '6px 14px',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            color: '#6b7280',
+            alignSelf: 'flex-start',
+          }}
+        >
+          Sair
+        </button>
       </header>
 
       <main style={styles.content} className="dashboard-content-grid">
@@ -1114,6 +1133,9 @@ const styles = {
   header: {
     maxWidth: '1200px',
     margin: '0 auto 24px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   eyebrow: {
     margin: 0,
