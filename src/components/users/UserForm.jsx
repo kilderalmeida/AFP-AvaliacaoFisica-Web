@@ -26,8 +26,32 @@ const EMPTY_FORM = {
   treinador_id: '',
 };
 
+function isoToDisplayDate(iso) {
+  const [y, m, d] = (iso || '').split('-');
+  if (!y || !m || !d) return '';
+  return `${d}/${m}/${y}`;
+}
+
+function maskDisplayDate(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean).join('/');
+}
+
+function displayDateToIso(display) {
+  const digits = display.replace(/\D/g, '');
+  if (digits.length !== 8) return null;
+  const d = digits.slice(0, 2);
+  const m = digits.slice(2, 4);
+  const y = digits.slice(4, 8);
+  const iso = `${y}-${m}-${d}`;
+  const parsed = new Date(iso);
+  const valid = parsed.getUTCFullYear() === Number(y) && parsed.getUTCMonth() + 1 === Number(m) && parsed.getUTCDate() === Number(d);
+  return valid ? iso : null;
+}
+
 export function UserForm({ initialValues = {}, mode = 'create', trainers = [], onSubmit, onCancel, loading = false }) {
   const [form, setForm] = useState({ ...EMPTY_FORM, ...initialValues });
+  const [birthDateDisplay, setBirthDateDisplay] = useState(isoToDisplayDate(initialValues.birthDate));
   const [errors, setErrors] = useState({});
 
   function set(field, value) {
@@ -35,11 +59,28 @@ export function UserForm({ initialValues = {}, mode = 'create', trainers = [], o
     setErrors((prev) => ({ ...prev, [field]: undefined }));
   }
 
+  function handleBirthDateChange(e) {
+    const masked = maskDisplayDate(e.target.value);
+    setBirthDateDisplay(masked);
+    setErrors((prev) => ({ ...prev, birthDate: undefined }));
+
+    const digits = masked.replace(/\D/g, '');
+    if (digits.length === 0) { set('birthDate', ''); return; }
+    if (digits.length < 8) return;
+
+    const iso = displayDateToIso(masked);
+    if (iso) set('birthDate', iso);
+    else setErrors((prev) => ({ ...prev, birthDate: 'Data inválida' }));
+  }
+
   function validate() {
     const errs = {};
     if (mode === 'create' && !form.email.trim()) errs.email = 'Email obrigatório';
     if (!form.displayName.trim()) errs.displayName = 'Nome obrigatório';
     if (!form.papel) errs.papel = 'Papel obrigatório';
+    if (birthDateDisplay.replace(/\D/g, '').length > 0 && !displayDateToIso(birthDateDisplay)) {
+      errs.birthDate = 'Data inválida';
+    }
     return errs;
   }
 
@@ -104,8 +145,17 @@ export function UserForm({ initialValues = {}, mode = 'create', trainers = [], o
           <input style={inputStyle()} type="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="(11) 91234-5678" disabled={loading} />
         </Field>
 
-        <Field label="Data de nascimento">
-          <input style={inputStyle()} type="date" value={form.birthDate} onChange={(e) => set('birthDate', e.target.value)} disabled={loading} />
+        <Field label="Data de nascimento" error={errors.birthDate}>
+          <input
+            style={inputStyle(errors.birthDate)}
+            type="text"
+            inputMode="numeric"
+            value={birthDateDisplay}
+            onChange={handleBirthDateChange}
+            placeholder="dd/mm/aaaa"
+            maxLength={10}
+            disabled={loading}
+          />
         </Field>
       </div>
 

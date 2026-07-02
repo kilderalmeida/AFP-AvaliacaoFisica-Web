@@ -1,6 +1,32 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-06-02 (bugfix Check-out — sessão aberta por escopo de trainer; Wave 7 completa)_
+_Atualizado em: 2026-07-02 (bugfix Data de nascimento — máscara digitável dd/mm/aaaa para mobile)_
+
+---
+
+## Bugfix — Data de nascimento não digitável em mobile (2026-07-02)
+
+**Problema relatado:** no cadastro de usuário (`UserForm.jsx`), o campo "Data de nascimento" usava `<input type="date">` nativo. Em mobile (Android/iOS) isso renderiza um wheel picker (iOS) ou dialog nativo (Android) — nenhum dos dois é bom para digitação, e rolar o wheel até uma data de nascimento antiga é lento.
+
+**Correção — `src/components/users/UserForm.jsx` e `src/pages/profile/ProfileCompletionPage.jsx`:**
+- Campo trocado de `type="date"` para `input type="text" inputMode="numeric"` com máscara `dd/mm/aaaa` aplicada durante a digitação (insere `/` automaticamente, limite de 8 dígitos).
+- Dispara teclado numérico em Android e iOS de forma consistente (não depende do picker nativo de cada SO).
+- Validação: data incompleta não gera erro; data completa mas inválida (ex: 31/02) mostra "Data inválida" em tempo real e no submit.
+- Armazenamento inalterado: o valor continua persistido em ISO (`yyyy-mm-dd`) internamente — conversão feita no componente, sem impacto em `userService.js`, `functions/index.js` ou dados existentes.
+
+**Sem mudanças em:** `firestore.rules`, `firestore.indexes.json`, `functions/`, modelo de dados.
+
+**Investigação paralela (sem alteração de código):** durante a sessão, foi levantada a dúvida se um usuário pode acumular papel de coach e atleta simultaneamente. Achados (não implementados, aguardando decisão do usuário):
+- `users.papel` é campo único (string); regras Firestore (`isTrainer()`, Cloud Function `coachAthletes`) e a Cloud Function `createUserCallable` dependem dele.
+- Existe um campo paralelo `users.userTypes` (array), populado hoje só com `[papel]`, com lógica de resolução de prioridade já escrita em `sessionService.js:resolveCanonicalRole` para múltiplos valores.
+- `DashboardPage.jsx`/`CheckInPage.jsx`/`CheckOutPage.jsx` calculam `includeSelfAthlete = userTypes.includes('athlete')` e passam para `listTrainerAthleteOptions`, mas essa função nunca usa o parâmetro — feature incompleta/código morto.
+- Verificado ao vivo (Admin SDK, somente leitura) que `cathlete@dev.local` tem `papel: "athlete"` e `userTypes: ["athlete"]` — não é dual-role hoje.
+- Achado à parte: `cathlete@dev.local` tem `treinador_id: null` em produção, mas o seed script espera `treinador_id: coachUid` — possível drift entre seed e dado real, não investigado a fundo.
+- Novo script de diagnóstico somente-leitura: `scripts/diagnose-cathlete.mjs`.
+
+**Validado:** `npm run build` ✅ (108 módulos, 0 erros); `test:rules:emulator` ✅ 21/21; `test:coach-flow:emulator` ✅ 26/26. Smoke test manual confirmado pelo usuário.
+
+**Deploy:** aprovado explicitamente pelo usuário nesta sessão.
 
 ---
 

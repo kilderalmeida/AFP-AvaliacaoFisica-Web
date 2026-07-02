@@ -3,6 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { updateUserProfile } from '../../services/userService.js';
 
+function isoToDisplayDate(iso) {
+  const [y, m, d] = (iso || '').split('-');
+  if (!y || !m || !d) return '';
+  return `${d}/${m}/${y}`;
+}
+
+function maskDisplayDate(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean).join('/');
+}
+
+function displayDateToIso(display) {
+  const digits = display.replace(/\D/g, '');
+  if (digits.length !== 8) return null;
+  const d = digits.slice(0, 2);
+  const m = digits.slice(2, 4);
+  const y = digits.slice(4, 8);
+  const iso = `${y}-${m}-${d}`;
+  const parsed = new Date(iso);
+  const valid = parsed.getUTCFullYear() === Number(y) && parsed.getUTCMonth() + 1 === Number(m) && parsed.getUTCDate() === Number(d);
+  return valid ? iso : null;
+}
+
 export default function ProfileCompletionPage() {
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
@@ -13,6 +36,7 @@ export default function ProfileCompletionPage() {
     birthDate: profile?.birthDate || '',
     sex: profile?.sex || '',
   });
+  const [birthDateDisplay, setBirthDateDisplay] = useState(isoToDisplayDate(profile?.birthDate));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -20,10 +44,26 @@ export default function ProfileCompletionPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  function handleBirthDateChange(e) {
+    const masked = maskDisplayDate(e.target.value);
+    setBirthDateDisplay(masked);
+
+    const digits = masked.replace(/\D/g, '');
+    if (digits.length === 0) { setField('birthDate', ''); return; }
+    if (digits.length < 8) return;
+
+    const iso = displayDateToIso(masked);
+    if (iso) setField('birthDate', iso);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.displayName.trim()) {
       setError('Nome é obrigatório.');
+      return;
+    }
+    if (birthDateDisplay.replace(/\D/g, '').length > 0 && !displayDateToIso(birthDateDisplay)) {
+      setError('Data de nascimento inválida.');
       return;
     }
     setSaving(true);
@@ -84,9 +124,12 @@ export default function ProfileCompletionPage() {
               <label style={styles.label}>Data de nascimento</label>
               <input
                 style={inputStyle()}
-                type="date"
-                value={form.birthDate}
-                onChange={(e) => setField('birthDate', e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={birthDateDisplay}
+                onChange={handleBirthDateChange}
+                placeholder="dd/mm/aaaa"
+                maxLength={10}
                 disabled={saving}
               />
             </div>
