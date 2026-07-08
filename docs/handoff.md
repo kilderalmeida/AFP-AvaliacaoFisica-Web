@@ -1,6 +1,30 @@
 # AFP Web — Handoff de sessão
 
-_Atualizado em: 2026-07-02 (bugfix Data de nascimento — máscara digitável dd/mm/aaaa para mobile)_
+_Atualizado em: 2026-07-07 (H-34 — trainer convida athlete diretamente, Wave 8)_
+
+---
+
+## H-34 — trainer convida athlete e vincula a si mesmo (Wave 8 — concluída)
+
+**Problema relatado pelo usuário:** "um treinador não consegue convidar um atleta". Investigação confirmou que isso era comportamento por design (H-27: "trainer não convida" — só `account_admin` convidava, via `AccountAdminPage`). O usuário decidiu abrir esta história para dar ao trainer a capacidade de convidar diretamente.
+
+**Decisão arquitetural (parada e consultada antes de implementar, conforme CLAUDE.md §3):** toda criação de usuário passa por `createUserCallable` (`functions/index.js`), que antes só aceitava `callerRole === 'platform_admin' || 'account_admin'`. Opções levantadas ao usuário: (1) trainer convida com vínculo automático a si mesmo, (2) trainer convida sem vínculo automático, (3) manter como está. **Escolhida: opção 1.**
+
+**Arquivos alterados:**
+- `functions/index.js` — `createUserCallable` aceita `callerRole === 'trainer' || 'coach'`. Para esses papéis, `papel`/`accountId`/`treinador_id` são **forçados no servidor** (`papel = 'athlete'`, `accountId = callerAccountId`, `treinador_id = callerUid`), ignorando qualquer valor enviado pelo cliente — impede que um trainer crie outro papel ou se vincule a uma conta diferente da sua.
+- `src/pages/trainer/TrainerAthletesPage.jsx` — botão "+ Convidar atleta" (oculto para `coach` — fora de escopo, modelo de dados do coach é multi-trainer e não se encaixa no mesmo fluxo) + formulário inline (E-mail, Nome). Reusa `createUser` (`userService.js`) e `canAddAthlete`/`linkAthleteChecked` (`accountService.js`) — **nenhum serviço novo criado**.
+
+**Fluxo:** `handleInviteAthlete` → checa `canAddAthlete(profile.accountId)` → `createUser({ papel: 'athlete', ... })` (Cloud Function cria o Auth user + doc Firestore já com `treinador_id` correto) → `linkAthleteChecked(newUid, user.uid, profile.accountId, user.uid)` cria o `athlete_links` (permitido pela regra existente `isTrainer() && trainerId == request.auth.uid`) e tenta o dual-write de `treinador_id` (no-op seguro, pois o valor já foi gravado pela Cloud Function — o `updateDoc` client-side para esse campo falharia silenciosamente para um trainer não-dono/não-admin, mas não importa porque o valor já está correto).
+
+**Sem mudanças em:** `firestore.rules`, `firestore.indexes.json` (a regra de criação de `athlete_links` por trainer já existia; nenhuma nova permissão de Firestore foi necessária — só a Cloud Function, que usa Admin SDK).
+
+**Validado:** `npm run build` ✅ 108 módulos, 0 erros; `test:rules:emulator` ✅ 21/21; `test:coach-flow:emulator` ✅ 26/26 (nenhuma dessas suítes exercita `createUserCallable` diretamente — não há Functions Emulator no harness atual).
+
+**Smoke test manual:** confirmado pelo usuário ("teste está ok").
+
+**Deploy:** `firebase deploy --only functions,hosting` executado em 2026-07-07, aprovado explicitamente pelo usuário. `createUserCallable`, `athleteDashboardStats`, `trainerDashboardStats`, `trainerActivities`, `coachAthletes` atualizadas; hosting publicado.
+
+**Próximo passo:** nenhuma pendência para H-34.
 
 ---
 

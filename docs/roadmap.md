@@ -1,6 +1,6 @@
 # AFP Web — Roadmap técnico
 
-_Atualizado em: 2026-06-01 (Wave 7 completa — EPIC-9 Polimento de UX, H-26 a H-33 todas done)_
+_Atualizado em: 2026-07-07 (Wave 8 — H-34 trainer convida athlete diretamente)_
 
 ---
 
@@ -55,6 +55,7 @@ _Atualizado em: 2026-06-01 (Wave 7 completa — EPIC-9 Polimento de UX, H-26 a H
 | H-05 | account_admin convida athlete e vincula a trainer | 2 | **done** |
 | H-06 | Profile completion flow para usuário convidado | 2 | **done** |
 | H-07 | Reenvio de convite | 2 | **done** |
+| H-34 | trainer convida athlete e vincula a si mesmo | 8 | **done** |
 
 ### EPIC-3 — Gestão de vínculos
 
@@ -158,6 +159,9 @@ Wave 7 — Polimento de UX (EPIC-9 — completa)
   H-31  ✅ done  (microcopy conta+admin; copy fixa, sem vazar err.message)
   H-32  ✅ done  (FeedbackBanner substitui os 4 alert() nativos)
   H-33  ✅ done  (bloco de uso de plano no topo + pista âmbar near-limit)
+
+Wave 8 — Convite direto pelo trainer
+  H-34  ✅ done  (createUserCallable aceita trainer/coach; vínculo automático ao próprio uid)
 ```
 
 ---

@@ -5,7 +5,8 @@ import {
   getTrainerActiveAthletes,
   getTrainerInactiveAthletes,
 } from '../../services/athleteLinkService.js';
-import { getUserProfile } from '../../services/userService.js';
+import { getUserProfile, createUser } from '../../services/userService.js';
+import { canAddAthlete, linkAthleteChecked } from '../../services/accountService.js';
 import { activityService } from '../../services/activity.service.js';
 import { fetchCoachAthletes } from '../../services/coach-athletes-backend.service.js';
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx';
@@ -13,7 +14,7 @@ import { EmptyStateCard } from '../../components/feedback/EmptyStateCard.jsx';
 import { ErrorStateCard } from '../../components/feedback/ErrorStateCard.jsx';
 
 export default function TrainerAthletesPage() {
-  const { user, role } = useAuth();
+  const { user, profile, role } = useAuth();
   const isCoach = role === 'coach';
   const navigate = useNavigate();
   const [athletes, setAthletes] = useState([]);
@@ -23,6 +24,11 @@ export default function TrainerAthletesPage() {
   const [inactiveLoaded, setInactiveLoaded] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   const [error, setError] = useState(null);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ email: '', displayName: '' });
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState(null);
+  const [inviteSuccess, setInviteSuccess] = useState(null);
 
   const load = useCallback(async () => {
     if (!user?.uid) return;
@@ -124,6 +130,50 @@ export default function TrainerAthletesPage() {
     }
   }
 
+  function handleOpenInviteForm() {
+    setShowInviteForm(true);
+    setInviteError(null);
+    setInviteSuccess(null);
+    setInviteForm({ email: '', displayName: '' });
+  }
+
+  async function handleInviteAthlete() {
+    const { email, displayName } = inviteForm;
+    if (!email.trim() || !displayName.trim()) {
+      setInviteError('E-mail e nome são obrigatórios.');
+      return;
+    }
+    setInviteError(null);
+    setInviteSuccess(null);
+    const limitData = await canAddAthlete(profile.accountId);
+    if (!limitData.allowed) {
+      setInviteError(`Limite de atletas ativos atingido (${limitData.count}/${limitData.limit}).`);
+      return;
+    }
+    setInviting(true);
+    try {
+      const newUid = await createUser(
+        { email: email.trim(), displayName: displayName.trim(), papel: 'athlete', status: 'invited' },
+        user.uid
+      );
+      await linkAthleteChecked(newUid, user.uid, profile.accountId, user.uid);
+      setInviteSuccess(`Atleta "${displayName.trim()}" convidado e vinculado.`);
+      setShowInviteForm(false);
+      setInviteForm({ email: '', displayName: '' });
+      await load();
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        setInviteError('Este e-mail já está cadastrado na plataforma.');
+      } else if (err.code === 'limit_reached') {
+        setInviteError('Atleta criado, mas limite de vínculos atingido.');
+      } else {
+        setInviteError('Não foi possível convidar o atleta. Tente novamente.');
+      }
+    } finally {
+      setInviting(false);
+    }
+  }
+
   const inactiveLabel = inactiveLoaded
     ? `${showInactive ? 'Ocultar' : 'Mostrar'} inativos (${inactiveAthletes.length})`
     : `${showInactive ? 'Ocultar' : 'Mostrar'} inativos`;
@@ -135,6 +185,49 @@ export default function TrainerAthletesPage() {
         <h1 style={styles.title}>Meus atletas</h1>
         <p style={styles.subtitle}>Atletas vinculados à sua conta.</p>
       </div>
+
+      {!isCoach && !showInviteForm && (
+        <button style={styles.btnInvite} onClick={handleOpenInviteForm}>
+          + Convidar atleta
+        </button>
+      )}
+
+      {!isCoach && showInviteForm && (
+        <div style={styles.inviteFormBox}>
+          <p style={styles.inviteFormTitle}>Convidar novo atleta</p>
+          <div style={styles.inviteFormRow}>
+            <input
+              style={styles.inviteInput}
+              type="email"
+              placeholder="E-mail *"
+              value={inviteForm.email}
+              onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+              disabled={inviting}
+            />
+            <input
+              style={styles.inviteInput}
+              type="text"
+              placeholder="Nome *"
+              value={inviteForm.displayName}
+              onChange={(e) => setInviteForm((f) => ({ ...f, displayName: e.target.value }))}
+              disabled={inviting}
+            />
+            <button style={styles.btnAssess} onClick={handleInviteAthlete} disabled={inviting}>
+              {inviting ? 'Convidando…' : 'Convidar'}
+            </button>
+            <button
+              style={styles.btnToggleInactive}
+              onClick={() => setShowInviteForm(false)}
+              disabled={inviting}
+            >
+              Cancelar
+            </button>
+          </div>
+          {inviteError && <p style={styles.errorText}>{inviteError}</p>}
+        </div>
+      )}
+
+      {inviteSuccess && !showInviteForm && <p style={styles.successText}>{inviteSuccess}</p>}
 
       {loading && (
         <EmptyStateCard title="Carregando..." message="Buscando seus atletas." />
@@ -380,4 +473,35 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 600,
   },
+  btnInvite: {
+    justifySelf: 'start',
+    padding: '9px 16px',
+    borderRadius: '8px',
+    border: 'none',
+    background: '#1d4ed8',
+    color: '#fff',
+    fontSize: '14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  inviteFormBox: {
+    padding: '16px',
+    borderRadius: '10px',
+    border: '1px solid #e2e8f0',
+    background: '#f8fafc',
+    display: 'grid',
+    gap: '12px',
+  },
+  inviteFormTitle: { margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' },
+  inviteFormRow: { display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' },
+  inviteInput: {
+    padding: '8px 10px',
+    borderRadius: '8px',
+    border: '1px solid #cbd5e1',
+    background: '#fff',
+    fontSize: '14px',
+    color: '#0f172a',
+  },
+  errorText: { color: '#dc2626', fontSize: '14px', margin: 0 },
+  successText: { color: '#16a34a', fontSize: '14px', margin: 0 },
 };

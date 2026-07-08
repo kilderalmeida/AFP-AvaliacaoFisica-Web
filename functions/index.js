@@ -543,12 +543,13 @@ exports.createUserCallable = onCall(async (request) => {
   }
   const callerRole = callerSnap.data().papel;
   const callerAccountId = callerSnap.data().accountId;
+  const callerIsTrainer = callerRole === 'trainer' || callerRole === 'coach';
 
-  if (callerRole !== 'platform_admin' && callerRole !== 'account_admin') {
+  if (callerRole !== 'platform_admin' && callerRole !== 'account_admin' && !callerIsTrainer) {
     throw new HttpsError('permission-denied', 'Insufficient permissions to create users.');
   }
 
-  const {
+  let {
     email,
     displayName = '',
     papel,
@@ -560,6 +561,14 @@ exports.createUserCallable = onCall(async (request) => {
     treinador_id = '',
     accountId = null,
   } = request.data || {};
+
+  // trainer/coach can only self-invite an athlete already linked to themselves —
+  // papel/accountId/treinador_id are forced server-side, ignoring any client input.
+  if (callerIsTrainer) {
+    papel = 'athlete';
+    accountId = callerAccountId;
+    treinador_id = callerUid;
+  }
 
   if (!email || !papel) {
     throw new HttpsError('invalid-argument', 'email and papel are required.');
